@@ -20,16 +20,16 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- ใช้ CDN ที่เสถียรขึ้น (ระบุเวอร์ชันชัดเจน) -->
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
     
     <!-- Recharts (สำหรับวาดกราฟ) -->
-    <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.13.3/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 
     <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
     <!-- CSS สำหรับโหมดการพิมพ์ (Print Mode) -->
     <style>
@@ -56,7 +56,6 @@
             appId: "1:976092696551:web:dfcd5d6201d47f61ce3742",
             measurementId: "G-19K5Y7YSH0"
         });
-        // ตั้งชื่อแอปเพื่อแยกโฟลเดอร์เก็บข้อมูลจากงานเก่า
         const __app_id = "construction-ppao-tracker";
     </script>
     <!-- ========================================== -->
@@ -64,7 +63,14 @@
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
     
-    <div id="root"></div>
+    <!-- เพิ่ม Loading UI ป้องกันจอขาว หากโหลดไม่ขึ้นจะค้างที่หน้านี้ -->
+    <div id="root">
+        <div class="min-h-screen flex flex-col items-center justify-center text-gray-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i>
+            <p class="text-lg font-medium text-gray-700">กำลังโหลดระบบ...</p>
+            <p class="text-sm mt-2">หากหน้านี้ค้างนานกว่า 10 วินาที โปรดรีเฟรชหน้าเว็บใหม่</p>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -77,7 +83,10 @@
 
     <script type="text/babel">
         const { useState, useMemo, useRef, useEffect } = React;
-        const { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
+        
+        // ป้องกันแอปพัง หากโหลดไลบรารีกราฟไม่สำเร็จ
+        const Recharts = window.Recharts || {};
+        const { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
 
         function App() {
             const [user, setUser] = useState(null);
@@ -345,7 +354,7 @@
             };
 
             const weekIndex = projectWeeks.findIndex(w => w.id === activeWeekId);
-            const relevantWeeks = projectWeeks.slice(0, weekIndex + 1);
+            const relevantWeeks = projectWeeks.slice(0, Math.max(0, weekIndex + 1));
 
             // --- คำนวณ BOQ ---
             const summary = useMemo(() => {
@@ -377,7 +386,7 @@
                     sumWeightDisp += itemWeightDisp;
 
                     let itemPrevQty = 0;
-                    relevantWeeks.slice(0, relevantWeeks.length - 1).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
+                    relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
                     const itemThisWeekQty = item.progressByWeek?.[activeWeekId] || 0;
                     const totalCompleted = itemPrevQty + itemThisWeekQty;
 
@@ -417,7 +426,7 @@
                     sumUnitPrice,
                     sumWeightDisp
                 };
-            }, [items, activeWeekId, projectWeeks]);
+            }, [items, activeWeekId, projectWeeks, relevantWeeks]);
 
             const chartData = useMemo(() => {
                 const proj = projects.find(p => p.id === activeProjectId);
@@ -508,7 +517,7 @@
 
                 setItems(prevItems => prevItems.map(item => {
                     if (item.id === currentItem.id) {
-                        const prevQty = relevantWeeks.slice(0, relevantWeeks.length - 1).reduce((sum, w) => sum + (item.progressByWeek?.[w.id] || 0), 0);
+                        const prevQty = relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).reduce((sum, w) => sum + (item.progressByWeek?.[w.id] || 0), 0);
                         const maxAllowed = item.totalQty - prevQty;
                         const safeThisWeekQty = Math.min(thisWeekQty, maxAllowed);
 
@@ -581,6 +590,7 @@
                     try {
                         const arrayBuffer = event.target.result;
                         let text = new TextDecoder('utf-8').decode(arrayBuffer);
+                        // แก้บั๊กตรงนี้: เปลี่ยนจากการเช็ค '' (ซึ่งเป็นจริงเสมอ) เป็นเช็คอักขระแปลกประหลาด '' (กรณีเปิดไฟล์ Windows-874 ด้วย UTF-8)
                         if (text.includes('')) text = new TextDecoder('windows-874').decode(arrayBuffer);
                         
                         const lines = text.split(/\r?\n|\r/).filter(line => line.trim() !== '');
@@ -717,7 +727,8 @@
                                     projects.map(project => {
                                         const progress = calculateProjectProgress(project);
                                         const isCompleted = progress >= 100;
-                                        const lastUpdatedDate = new Date(project.updatedAt || project.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+                                        const dateStr = project.updatedAt || project.createdAt;
+                                        const lastUpdatedDate = dateStr ? new Date(dateStr).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
 
                                         return (
                                             <div key={project.id} onClick={() => handleOpenProject(project)} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all group relative">
@@ -878,7 +889,7 @@
                         </div>
 
                         {/* แสดงผลกราฟ (S-Curve & Bar Chart) */}
-                        {chartData.length > 0 && (
+                        {chartData.length > 0 && Recharts.ComposedChart && (
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -974,7 +985,7 @@
                                                     const displayUnitPrice = item.unitPrice !== undefined ? item.unitPrice : (item.totalQty > 0 ? itemTotalValue / item.totalQty : 0);
 
                                                     let itemPrevQty = 0;
-                                                    relevantWeeks.slice(0, relevantWeeks.length - 1).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
+                                                    relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
                                                     const itemThisWeekQty = item.progressByWeek?.[activeWeekId] || 0;
                                                     const totalCompleted = itemPrevQty + itemThisWeekQty;
                                                     const remaining = item.totalQty - totalCompleted;
@@ -1118,7 +1129,7 @@
                                         <div>
                                             <p className="text-xs text-gray-500 mb-0.5">ยอดยกมา (ก่อนสัปดาห์นี้)</p>
                                             <p className="font-semibold text-blue-600">
-                                                {formatNumber(relevantWeeks.slice(0, relevantWeeks.length - 1).reduce((sum, w) => sum + (currentItem.progressByWeek?.[w.id] || 0), 0))} <span className="text-xs font-normal">{currentItem.unit}</span>
+                                                {formatNumber(relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).reduce((sum, w) => sum + (currentItem.progressByWeek?.[w.id] || 0), 0))} <span className="text-xs font-normal">{currentItem.unit}</span>
                                             </p>
                                         </div>
                                     </div>
@@ -1184,7 +1195,7 @@
                     )}
 
                     {/* Modal ดูกราฟรายไอเท็ม */}
-                    {chartItem && (
+                    {chartItem && Recharts.ComposedChart && (
                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white rounded-2xl w-full max-w-4xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
                                 <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
