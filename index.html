@@ -23,21 +23,20 @@
     <script src="https://unpkg.com/recharts@2.13.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
 
-    <!-- โหลด Firebase Compat -->
+    <!-- โหลด Firebase Compat (เสถียรที่สุด) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
     <style>
+        /* จัดการสไตล์เวลาพิมพ์จริง */
         @media print {
             body { background-color: white !important; }
-            .shadow-sm, .shadow-xl { box-shadow: none !important; }
+            .shadow-sm, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
             .border { border-color: #E5E7EB !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            /* ซ่อน Scrollbar เวลาปริ้น */
             ::-webkit-scrollbar { display: none; }
         }
-        @page { size: A4 landscape; margin: 10mm; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
@@ -77,6 +76,7 @@
             const fileInputRef = useRef(null);      // สำหรับ CSV
             const importFileRef = useRef(null);    // สำหรับ JSON (กู้คืนข้อมูล)
 
+            // State สำหรับควบคุมโหมด Print Preview
             const [printMode, setPrintMode] = useState(null); // 'boq' หรือ 'weekly'
 
             const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' });
@@ -88,13 +88,6 @@
             const [db, setDb] = useState(null);
             const [auth, setAuth] = useState(null);
             const appId = "construction-ppao-tracker";
-
-            // จัดการล้างสถานะ Print Mode หลังจากพิมพ์เสร็จ
-            useEffect(() => {
-                const handleAfterPrint = () => setPrintMode(null);
-                window.addEventListener('afterprint', handleAfterPrint);
-                return () => window.removeEventListener('afterprint', handleAfterPrint);
-            }, []);
 
             useEffect(() => {
                 const initFirebase = () => {
@@ -110,9 +103,7 @@
                             appId: "1:976092696551:web:dfcd5d6201d47f61ce3742"
                         };
 
-                        if (!firebase.apps.length) {
-                            firebase.initializeApp(firebaseConfig);
-                        }
+                        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                         
                         const fbAuth = firebase.auth();
                         const fbDb = firebase.firestore();
@@ -134,7 +125,6 @@
                 initFirebase();
             }, []);
 
-            // ดึงข้อมูล
             useEffect(() => {
                 if (!user || !db) return;
                 const colRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects');
@@ -148,7 +138,6 @@
                 return () => unsubscribe();
             }, [user, db]);
 
-            // บันทึกข้อมูล
             useEffect(() => {
                 if (!user || !db || !activeProjectId || !isDataLoaded) return;
                 const saveData = async () => {
@@ -187,7 +176,6 @@
                 setIsNewProjectModalOpen(false);
             };
 
-            // ---- ฟังก์ชันสำรอง และ กู้คืนข้อมูล JSON ----
             const handleExportData = () => {
                 if (projects.length === 0) {
                     showAlert('แจ้งเตือน', 'ไม่มีข้อมูลโครงการให้สำรองครับ');
@@ -199,9 +187,7 @@
                 const link = document.createElement("a");
                 link.href = url;
                 link.download = `RoadTracker_Backup_${new Date().toISOString().slice(0,10)}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
             };
 
             const handleImportData = (e) => {
@@ -221,7 +207,7 @@
                                     } catch (err) {
                                         hasError = true;
                                         if(err.code === 'permission-denied') {
-                                            showAlert('ข้อผิดพลาด', 'อัปโหลดไม่สำเร็จ! กรุณาตรวจสอบสิทธิ์ฐานข้อมูล Firebase');
+                                            showAlert('ข้อผิดพลาด', 'อัปโหลดไม่สำเร็จ! สิทธิ์การเขียนถูกปฏิเสธ');
                                             return;
                                         }
                                     }
@@ -232,7 +218,7 @@
                                 showAlert('สำเร็จ', 'นำเข้าและกู้คืนข้อมูลสำเร็จ!');
                             }
                         } else {
-                            showAlert('ข้อผิดพลาด', 'รูปแบบไฟล์ไม่ถูกต้องครับ โปรดใช้ไฟล์ Backup .json');
+                            showAlert('ข้อผิดพลาด', 'รูปแบบไฟล์ไม่ถูกต้องครับ โปรดใช้ไฟล์ .json');
                         }
                     } catch (error) {
                         showAlert('ข้อผิดพลาด', 'ไม่สามารถอ่านไฟล์ได้ครับ: ' + error.message);
@@ -299,10 +285,8 @@
                 pItems.forEach(item => {
                     const itemTotalValue = item.totalAmount || 0;
                     totalProjectValue += itemTotalValue;
-
                     let accumulatedQty = 0;
                     pWeeks.forEach(w => { accumulatedQty += (item.progressByWeek?.[w.id] || 0); });
-                    
                     const progressRatio = item.totalQty > 0 ? (accumulatedQty / item.totalQty) : 0;
                     totalCompletedValue += (itemTotalValue * progressRatio);
                 });
@@ -396,16 +380,9 @@
                 const totalWeeksToDisplay = Math.max(projectWeeks.length, planWeeks);
 
                 if (items.length === 0) return []; 
-                
                 let runningTotal = 0;
                 const data = [];
-                
-                data.push({
-                    name: 'เริ่มโครงการ',
-                    "ผลงานสัปดาห์นี้ (%)": null,
-                    "สะสมจริง (Actual)": 0,
-                    "แผนงาน (Plan)": 0
-                });
+                data.push({ name: 'เริ่มโครงการ', "ผลงานสัปดาห์นี้ (%)": null, "สะสมจริง (Actual)": 0, "แผนงาน (Plan)": 0 });
 
                 for (let i = 1; i <= totalWeeksToDisplay; i++) {
                     const t = i / planWeeks;
@@ -423,7 +400,6 @@
                             const thisWeekRatio = item.totalQty > 0 ? (thisWeekQty / item.totalQty) : 0;
                             weekValue += (itemTotalValue * thisWeekRatio);
                         });
-
                         weekPctThisWeek = summary.totalProjectValue > 0 ? (weekValue / summary.totalProjectValue) * 100 : 0;
                         runningTotal += weekPctThisWeek;
                         actualPct = parseFloat(runningTotal.toFixed(2));
@@ -525,12 +501,12 @@
                 });
             };
 
-            const handlePrint = (mode = 'boq') => {
+            // ฟังก์ชันสั่งพิมพ์ออกหน้าจอจริงๆ
+            const executePrint = () => {
                 if (window.top !== window.self) {
-                    showAlert('แจ้งเตือน', 'เบราว์เซอร์บล็อกการพิมพ์ในหน้าต่างพรีวิว\n📌 โปรดเปิดหน้าต่างใหม่หรือโหลดไปรันในเครื่องครับ');
+                    alert('ระบบการพรีวิวของเบราว์เซอร์บล็อกการพิมพ์\n📌 โปรดเปิดหน้าต่างใหม่ (Open in New Tab) หรือโหลดโค้ดไปรันในเครื่องเพื่อใช้ฟังก์ชันพิมพ์ครับ');
                 } else {
-                    setPrintMode(mode);
-                    setTimeout(() => { window.print(); }, 300);
+                    window.print();
                 }
             };
 
@@ -613,7 +589,7 @@
             const renderModals = () => (
                 <React.Fragment>
                     {alertDialog.isOpen && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[150] p-4">
                             <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
                                 <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                                     <h3 className="font-bold text-gray-800 text-lg">{alertDialog.title}</h3>
@@ -628,7 +604,7 @@
                         </div>
                     )}
                     {confirmDialog.isOpen && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[150] p-4">
                             <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
                                 <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                                     <h3 className="font-bold text-gray-800 text-lg">{confirmDialog.title}</h3>
@@ -658,9 +634,7 @@
                                     <p className="text-gray-500 mt-1">จัดการและติดตามความก้าวหน้าหลายโครงการในที่เดียว</p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                    {/* ซ่อน input file รับ JSON */}
                                     <input type="file" accept=".json" className="hidden" ref={importFileRef} onChange={handleImportData} />
-                                    
                                     <button onClick={() => importFileRef.current?.click()} className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm" title="นำเข้าไฟล์ Backup (.json)">
                                         <i className="fa-solid fa-file-import"></i> กู้คืนข้อมูล JSON
                                     </button>
@@ -720,7 +694,6 @@
                             </div>
                         </div>
 
-                        {/* Modal สร้างโครงการใหม่ */}
                         {isNewProjectModalOpen && (
                             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
@@ -753,192 +726,230 @@
 
             const currentProjectName = projects.find(p => p.id === activeProjectId)?.name || 'โครงการ';
 
+            // ==========================================
+            // โหมดตัวอย่างก่อนพิมพ์ (Print Preview - BOQ)
+            // ==========================================
             if (printMode === 'boq') {
                 return (
-                    <div className="bg-white font-sans text-gray-900 print:p-0 w-full mx-auto p-8 flex flex-col min-h-screen print:min-h-0 print:block">
-                        <style>{`@media print { @page { size: A4 landscape; margin: 10mm; } }`}</style>
+                    <div className="bg-gray-200 min-h-screen font-sans text-gray-900 flex flex-col items-center pb-20 print:bg-white print:pb-0">
+                        <style>{`@media print { @page { size: A4 landscape; margin: 10mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`}</style>
                         
-                        <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
-                            <h1 className="text-2xl font-bold mb-2">ตารางสรุปปริมาณงาน (BOQ) และความก้าวหน้ารายสัปดาห์</h1>
-                            <h2 className="text-lg font-semibold">{currentProjectName}</h2>
+                        {/* แถบเครื่องมือ Print Preview */}
+                        <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 lg:top-6 lg:bottom-auto z-[100] flex items-center gap-3 bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-gray-200 w-max">
+                            <button onClick={() => setPrintMode(null)} className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all">
+                                <i className="fa-solid fa-arrow-left"></i> กลับไปแก้ไข
+                            </button>
+                            <button onClick={executePrint} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md transition-all">
+                                <i className="fa-solid fa-print"></i> พิมพ์เอกสาร (BOQ)
+                            </button>
                         </div>
 
-                        <div className="w-full">
-                            <table className="w-full border-collapse border border-gray-800 text-[11px]">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="border border-gray-800 p-1.5 text-center w-10" rowSpan="2">ลำดับ</th>
-                                        <th className="border border-gray-800 p-1.5 text-center" rowSpan="2">รายการ</th>
-                                        <th className="border border-gray-800 p-1.5 text-center w-12" rowSpan="2">หน่วย</th>
-                                        <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">ปริมาณรวม</th>
-                                        <th className="border border-gray-800 p-1.5 text-center w-20" rowSpan="2">ราคา/หน่วย</th>
-                                        <th className="border border-gray-800 p-1.5 text-center w-24" rowSpan="2">เงินรวม (฿)</th>
-                                        <th className="border border-gray-800 p-1.5 text-center bg-blue-50 print:bg-gray-100" colSpan={projectWeeks.length}>ปริมาณผลงานที่ทำได้แต่ละสัปดาห์ (Quantity)</th>
-                                        <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">รวมสะสม</th>
-                                        <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">คงเหลือ</th>
-                                    </tr>
-                                    <tr>
-                                        {projectWeeks.map((w, idx) => (
-                                            <th key={w.id} className="border border-gray-800 p-1.5 text-center font-normal whitespace-nowrap bg-blue-50/50 print:bg-gray-50 w-12">
-                                                W{idx + 1}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.length === 0 ? (
-                                        <tr><td colSpan={projectWeeks.length + 8} className="text-center p-4">ไม่มีรายการงาน</td></tr>
-                                    ) : (
-                                        items.map((item, idx) => {
-                                            const itemTotalValue = item.totalAmount || 0;
-                                            const uprice = item.totalQty > 0 ? itemTotalValue / item.totalQty : 0;
-                                            
-                                            let totalQty = 0;
-                                            projectWeeks.forEach(w => { totalQty += (item.progressByWeek?.[w.id] || 0); });
-                                            const remaining = item.totalQty - totalQty;
+                        {/* พื้นที่กระดาษ */}
+                        <div className="w-full max-w-[100vw] overflow-x-auto p-4 md:p-8 lg:pt-24 print:p-0 flex justify-center">
+                            <div className="bg-white shadow-xl print:shadow-none p-8 md:p-10 w-fit min-w-[297mm] print:min-w-0 print:w-full print:p-0 rounded-sm print:rounded-none">
+                                <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+                                    <h1 className="text-2xl font-bold mb-2">ตารางสรุปปริมาณงาน (BOQ) และความก้าวหน้ารายสัปดาห์</h1>
+                                    <h2 className="text-lg font-semibold">{currentProjectName}</h2>
+                                </div>
 
-                                            return (
-                                                <tr key={item.id}>
-                                                    <td className="border border-gray-800 p-1.5 text-center">{idx + 1}</td>
-                                                    <td className="border border-gray-800 p-1.5">{item.name}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right">{formatNumber(item.totalQty)}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right">{formatNumber(itemTotalValue)}</td>
-                                                    {projectWeeks.map((w) => {
-                                                        const wkQty = item.progressByWeek?.[w.id] || 0;
-                                                        return (
-                                                            <td key={w.id} className="border border-gray-800 p-1.5 text-right text-blue-700 print:text-black">
-                                                                {wkQty > 0 ? formatNumber(wkQty) : '-'}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                    <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-800 print:text-black">{formatNumber(totalQty)}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right font-bold text-red-600 print:text-black">{formatNumber(remaining)}</td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="bg-gray-100 font-bold text-xs">
-                                        <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมทั้งสิ้น:</td>
-                                        <td className="border border-gray-800 p-2 text-right">฿ {formatNumber(summary.totalProjectValue)}</td>
-                                        <td colSpan={projectWeeks.length} className="border border-gray-800 p-2 text-center text-gray-600 print:text-black">ความก้าวหน้ารวมสะสม: {summary.displayCumulativeProgress}%</td>
-                                        <td colSpan="2" className="border border-gray-800 p-2 text-right text-blue-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                                <table className="w-full border-collapse border border-gray-800 text-[11px]">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="border border-gray-800 p-1.5 text-center w-10" rowSpan="2">ลำดับ</th>
+                                            <th className="border border-gray-800 p-1.5 text-center" rowSpan="2">รายการ</th>
+                                            <th className="border border-gray-800 p-1.5 text-center w-12" rowSpan="2">หน่วย</th>
+                                            <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">ปริมาณรวม</th>
+                                            <th className="border border-gray-800 p-1.5 text-center w-20" rowSpan="2">ราคา/หน่วย</th>
+                                            <th className="border border-gray-800 p-1.5 text-center w-24" rowSpan="2">เงินรวม (฿)</th>
+                                            <th className="border border-gray-800 p-1.5 text-center bg-blue-50 print:bg-gray-100" colSpan={projectWeeks.length}>ปริมาณผลงานที่ทำได้แต่ละสัปดาห์ (Quantity)</th>
+                                            <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">รวมสะสม</th>
+                                            <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">คงเหลือ</th>
+                                        </tr>
+                                        <tr>
+                                            {projectWeeks.map((w, idx) => (
+                                                <th key={w.id} className="border border-gray-800 p-1.5 text-center font-normal whitespace-nowrap bg-blue-50/50 print:bg-gray-50 w-12">
+                                                    W{idx + 1}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {items.length === 0 ? (
+                                            <tr><td colSpan={projectWeeks.length + 8} className="text-center p-4">ไม่มีรายการงาน</td></tr>
+                                        ) : (
+                                            items.map((item, idx) => {
+                                                const itemTotalValue = item.totalAmount || 0;
+                                                const uprice = item.totalQty > 0 ? itemTotalValue / item.totalQty : 0;
+                                                
+                                                let totalQty = 0;
+                                                projectWeeks.forEach(w => { totalQty += (item.progressByWeek?.[w.id] || 0); });
+                                                const remaining = item.totalQty - totalQty;
+
+                                                return (
+                                                    <tr key={item.id}>
+                                                        <td className="border border-gray-800 p-1.5 text-center">{idx + 1}</td>
+                                                        <td className="border border-gray-800 p-1.5">{item.name}</td>
+                                                        <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
+                                                        <td className="border border-gray-800 p-1.5 text-right">{formatNumber(item.totalQty)}</td>
+                                                        <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
+                                                        <td className="border border-gray-800 p-1.5 text-right">{formatNumber(itemTotalValue)}</td>
+                                                        {projectWeeks.map((w) => {
+                                                            const wkQty = item.progressByWeek?.[w.id] || 0;
+                                                            return (
+                                                                <td key={w.id} className="border border-gray-800 p-1.5 text-right text-blue-700 print:text-black">
+                                                                    {wkQty > 0 ? formatNumber(wkQty) : '-'}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-800 print:text-black">{formatNumber(totalQty)}</td>
+                                                        <td className="border border-gray-800 p-1.5 text-right font-bold text-red-600 print:text-black">{formatNumber(remaining)}</td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="bg-gray-100 font-bold text-xs">
+                                            <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมทั้งสิ้น:</td>
+                                            <td className="border border-gray-800 p-2 text-right">฿ {formatNumber(summary.totalProjectValue)}</td>
+                                            <td colSpan={projectWeeks.length} className="border border-gray-800 p-2 text-center text-gray-600 print:text-black">ความก้าวหน้ารวมสะสม: {summary.displayCumulativeProgress}%</td>
+                                            <td colSpan="2" className="border border-gray-800 p-2 text-right text-blue-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </div>
+                        {renderModals()}
                     </div>
                 );
             }
 
+            // ==========================================
+            // โหมดตัวอย่างก่อนพิมพ์ (Print Preview - Weekly)
+            // ==========================================
             if (printMode === 'weekly') {
                 const weeklyItems = items.filter(item => (item.progressByWeek?.[activeWeekId] || 0) > 0);
                 const currentWeekName = projectWeeks.find(w => w.id === activeWeekId)?.name || '';
                 let totalWeeklyAmount = 0;
 
                 return (
-                    <div className="bg-white font-sans text-gray-900 print:p-0 w-full max-w-[210mm] mx-auto p-8 flex flex-col min-h-screen print:min-h-0 print:block">
-                        {/* บังคับกระดาษ A4 แนวตั้ง เฉพาะหน้านี้ */}
-                        <style>{`@media print { @page { size: A4 portrait; margin: 15mm; } }`}</style>
+                    <div className="bg-gray-200 min-h-screen font-sans text-gray-900 flex flex-col items-center pb-20 print:bg-white print:pb-0">
+                        <style>{`@media print { @page { size: A4 portrait; margin: 15mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`}</style>
                         
-                        <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
-                            <h1 className="text-2xl font-bold mb-2">รายงานสรุปผลการดำเนินงาน</h1>
-                            <h2 className="text-lg font-semibold">{currentProjectName}</h2>
-                            <p className="text-gray-600 mt-1">ประจำ: {currentWeekName}</p>
+                        {/* แถบเครื่องมือ Print Preview */}
+                        <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 lg:top-6 lg:bottom-auto z-[100] flex items-center gap-3 bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-gray-200 w-max">
+                            <button onClick={() => setPrintMode(null)} className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all">
+                                <i className="fa-solid fa-arrow-left"></i> กลับไปแก้ไข
+                            </button>
+                            <button onClick={executePrint} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md transition-all">
+                                <i className="fa-solid fa-print"></i> พิมพ์รายงาน (รายสัปดาห์)
+                            </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 mb-6">
-                            <div className="border-2 border-blue-200 bg-blue-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
-                                <p className="text-xs text-blue-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานสัปดาห์นี้</p>
-                                <p className="font-bold text-lg text-blue-800 print:text-black">฿ {formatNumber(summary.thisWeekValue)}</p>
-                            </div>
-                            <div className="border-2 border-emerald-200 bg-emerald-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
-                                <p className="text-xs text-emerald-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานรวมสะสม</p>
-                                <p className="font-bold text-lg text-emerald-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</p>
-                            </div>
-                            <div className="border-2 border-purple-200 bg-purple-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
-                                <p className="text-xs text-purple-600 font-medium mb-1 print:text-gray-600">ความก้าวหน้ารวมสะสม</p>
-                                <p className="font-bold text-lg text-purple-800 print:text-black">{summary.displayCumulativeProgress}%</p>
-                            </div>
-                        </div>
+                        {/* พื้นที่กระดาษ (บังคับขนาด A4 แนวตั้ง) */}
+                        <div className="w-full p-4 md:p-8 lg:pt-24 print:p-0 flex justify-center">
+                            <div className="bg-white shadow-xl print:shadow-none p-8 md:p-12 w-full max-w-[210mm] print:max-w-none print:w-full print:p-0 rounded-sm print:rounded-none min-h-[297mm] flex flex-col">
+                                <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+                                    <h1 className="text-2xl font-bold mb-2">รายงานสรุปผลการดำเนินงาน</h1>
+                                    <h2 className="text-lg font-semibold">{currentProjectName}</h2>
+                                    <p className="text-gray-600 mt-1">ประจำ: {currentWeekName}</p>
+                                </div>
 
-                        <div className="mb-6">
-                            <div className="flex justify-between text-xs font-bold mb-1.5 text-gray-700">
-                                <span>ความก้าวหน้าโครงการเทียบกับเป้าหมาย (100%)</span>
-                                <span>{summary.displayCumulativeProgress}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden border border-gray-300 print:bg-gray-100">
-                                <div className="bg-green-500 h-full transition-all print:bg-gray-500" style={{width: `${summary.displayCumulativeProgress}%`}}></div>
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                    <div className="border-2 border-blue-200 bg-blue-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                        <p className="text-xs text-blue-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานสัปดาห์นี้</p>
+                                        <p className="font-bold text-lg text-blue-800 print:text-black">฿ {formatNumber(summary.thisWeekValue)}</p>
+                                    </div>
+                                    <div className="border-2 border-emerald-200 bg-emerald-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                        <p className="text-xs text-emerald-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานรวมสะสม</p>
+                                        <p className="font-bold text-lg text-emerald-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</p>
+                                    </div>
+                                    <div className="border-2 border-purple-200 bg-purple-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                        <p className="text-xs text-purple-600 font-medium mb-1 print:text-gray-600">ความก้าวหน้ารวมสะสม</p>
+                                        <p className="font-bold text-lg text-purple-800 print:text-black">{summary.displayCumulativeProgress}%</p>
+                                    </div>
+                                </div>
 
-                        <div className="mb-8 flex-1">
-                            <h3 className="font-bold mb-2 text-sm text-gray-800">รายละเอียดงานที่ดำเนินการในสัปดาห์นี้:</h3>
-                            <table className="w-full border-collapse border border-gray-800 text-xs">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="border border-gray-800 p-2 text-center w-12">ลำดับ</th>
-                                        <th className="border border-gray-800 p-2 text-left">รายการงานที่ทำ</th>
-                                        <th className="border border-gray-800 p-2 text-center w-16">หน่วย</th>
-                                        <th className="border border-gray-800 p-2 text-right w-24">ปริมาณ (สัปดาห์นี้)</th>
-                                        <th className="border border-gray-800 p-2 text-right w-28">ราคา/หน่วย (฿)</th>
-                                        <th className="border border-gray-800 p-2 text-right w-28">รวมเป็นเงิน (฿)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {weeklyItems.length === 0 ? (
-                                        <tr><td colSpan="6" className="text-center p-6 text-gray-500 italic">ไม่มีผลการดำเนินงานในสัปดาห์นี้</td></tr>
-                                    ) : (
-                                        weeklyItems.map((item, idx) => {
-                                            const qty = item.progressByWeek[activeWeekId];
-                                            const uprice = item.totalQty > 0 ? (item.totalAmount / item.totalQty) : 0;
-                                            const amt = qty * uprice;
-                                            totalWeeklyAmount += amt;
-                                            return (
-                                                <tr key={item.id}>
-                                                    <td className="border border-gray-800 p-1.5 text-center">{idx + 1}</td>
-                                                    <td className="border border-gray-800 p-1.5">{item.name}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-700 print:text-black">{formatNumber(qty)}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
-                                                    <td className="border border-gray-800 p-1.5 text-right font-bold">{formatNumber(amt)}</td>
+                                <div className="mb-6">
+                                    <div className="flex justify-between text-xs font-bold mb-1.5 text-gray-700">
+                                        <span>ความก้าวหน้าโครงการเทียบกับเป้าหมาย (100%)</span>
+                                        <span>{summary.displayCumulativeProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden border border-gray-300 print:bg-gray-100">
+                                        <div className="bg-green-500 h-full transition-all print:bg-gray-500" style={{width: `${summary.displayCumulativeProgress}%`}}></div>
+                                    </div>
+                                </div>
+
+                                <div className="mb-8 flex-1">
+                                    <h3 className="font-bold mb-2 text-sm text-gray-800">รายละเอียดงานที่ดำเนินการในสัปดาห์นี้:</h3>
+                                    <table className="w-full border-collapse border border-gray-800 text-xs">
+                                        <thead className="bg-gray-100">
+                                            <tr>
+                                                <th className="border border-gray-800 p-2 text-center w-12">ลำดับ</th>
+                                                <th className="border border-gray-800 p-2 text-left">รายการงานที่ทำ</th>
+                                                <th className="border border-gray-800 p-2 text-center w-16">หน่วย</th>
+                                                <th className="border border-gray-800 p-2 text-right w-24">ปริมาณ (สัปดาห์นี้)</th>
+                                                <th className="border border-gray-800 p-2 text-right w-28">ราคา/หน่วย (฿)</th>
+                                                <th className="border border-gray-800 p-2 text-right w-28">รวมเป็นเงิน (฿)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {weeklyItems.length === 0 ? (
+                                                <tr><td colSpan="6" className="text-center p-6 text-gray-500 italic">ไม่มีผลการดำเนินงานในสัปดาห์นี้</td></tr>
+                                            ) : (
+                                                weeklyItems.map((item, idx) => {
+                                                    const qty = item.progressByWeek[activeWeekId];
+                                                    const uprice = item.totalQty > 0 ? (item.totalAmount / item.totalQty) : 0;
+                                                    const amt = qty * uprice;
+                                                    totalWeeklyAmount += amt;
+                                                    return (
+                                                        <tr key={item.id}>
+                                                            <td className="border border-gray-800 p-1.5 text-center">{idx + 1}</td>
+                                                            <td className="border border-gray-800 p-1.5">{item.name}</td>
+                                                            <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
+                                                            <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-700 print:text-black">{formatNumber(qty)}</td>
+                                                            <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
+                                                            <td className="border border-gray-800 p-1.5 text-right font-bold">{formatNumber(amt)}</td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                        {weeklyItems.length > 0 && (
+                                            <tfoot className="bg-gray-100 font-bold text-sm">
+                                                <tr>
+                                                    <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมมูลค่างานสัปดาห์นี้:</td>
+                                                    <td className="border border-gray-800 p-2 text-right text-blue-800 font-black print:text-black">฿ {formatNumber(totalWeeklyAmount)}</td>
                                                 </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                                {weeklyItems.length > 0 && (
-                                    <tfoot>
-                                        <tr className="bg-gray-100 font-bold text-sm">
-                                            <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมมูลค่างานสัปดาห์นี้:</td>
-                                            <td className="border border-gray-800 p-2 text-right text-blue-800 font-black print:text-black">฿ {formatNumber(totalWeeklyAmount)}</td>
-                                        </tr>
-                                    </tfoot>
-                                )}
-                            </table>
-                        </div>
-                        
-                        <div className="flex justify-around mt-8 pt-8">
-                            <div className="text-center w-64">
-                                <p className="text-sm font-medium mb-10">ผู้รายงาน / ผู้รับจ้าง</p>
-                                <p className="mb-2 border-b border-gray-800 pb-1 text-transparent select-none">ลายเซ็น</p>
-                                <p className="text-xs text-gray-600">(........................................................)</p>
-                                <p className="text-xs mt-2 text-gray-500">วันที่......./......./.......</p>
-                            </div>
-                            <div className="text-center w-64">
-                                <p className="text-sm font-medium mb-10">ผู้ตรวจรับงาน / คณะกรรมการ</p>
-                                <p className="mb-2 border-b border-gray-800 pb-1 text-transparent select-none">ลายเซ็น</p>
-                                <p className="text-xs text-gray-600">(........................................................)</p>
-                                <p className="text-xs mt-2 text-gray-500">วันที่......./......./.......</p>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                </div>
+                                
+                                <div className="flex justify-around mt-8 pt-8">
+                                    <div className="text-center w-64">
+                                        <p className="text-sm font-medium mb-10">ผู้รายงาน / ผู้รับจ้าง</p>
+                                        <p className="mb-2 border-b border-gray-800 pb-1 text-transparent select-none">ลายเซ็น</p>
+                                        <p className="text-xs text-gray-600">(........................................................)</p>
+                                        <p className="text-xs mt-2 text-gray-500">วันที่......./......./.......</p>
+                                    </div>
+                                    <div className="text-center w-64">
+                                        <p className="text-sm font-medium mb-10">ผู้ตรวจรับงาน / คณะกรรมการ</p>
+                                        <p className="mb-2 border-b border-gray-800 pb-1 text-transparent select-none">ลายเซ็น</p>
+                                        <p className="text-xs text-gray-600">(........................................................)</p>
+                                        <p className="text-xs mt-2 text-gray-500">วันที่......./......./.......</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                        {renderModals()}
                     </div>
                 );
             }
 
+            // ==========================================
+            // โหมดปกติ (หน้า Editor ของโครงการ)
+            // ==========================================
             return (
                 <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800 print:bg-white print:p-0">
                     <div className="max-w-6xl mx-auto space-y-6 print:space-y-4">
@@ -953,18 +964,20 @@
                                 </h1>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto print:hidden">
-                                <button onClick={() => handlePrint('boq')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
-                                    <i className="fa-solid fa-print text-gray-500 text-lg"></i> <span className="hidden lg:inline">พิมพ์ตาราง BOQ</span>
+                                {/* ปุ่มเหล่านี้ตอนนี้จะเปลี่ยนให้เป็นแค่การเปิดหน้า Preview Mode เท่านั้น */}
+                                <button onClick={() => setPrintMode('boq')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
+                                    <i className="fa-solid fa-print text-gray-500 text-lg"></i> <span className="hidden sm:inline">พิมพ์ BOQ</span>
                                 </button>
-                                <button onClick={() => handlePrint('weekly')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg font-medium shadow-sm" title="พิมพ์เฉพาะรายการที่ทำในสัปดาห์ที่เลือก">
-                                    <i className="fa-solid fa-file-invoice text-lg"></i> <span className="hidden lg:inline">พิมพ์รายสัปดาห์</span>
+                                <button onClick={() => setPrintMode('weekly')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg font-medium shadow-sm">
+                                    <i className="fa-solid fa-file-invoice text-lg"></i> <span className="hidden sm:inline">พิมพ์รายสัปดาห์</span>
                                 </button>
-                                <button onClick={handleDownloadTemplate} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
-                                    <span className="hidden sm:inline">โหลดเทมเพลต CSV</span>
-                                </button>
+                                
                                 <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
                                 <button onClick={() => fileInputRef.current?.click()} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
                                     <i className="fa-solid fa-file-import text-lg"></i> <span className="hidden sm:inline">อัปโหลด CSV</span>
+                                </button>
+                                <button onClick={handleDownloadTemplate} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm" title="โหลดฟอร์มตารางเปล่า">
+                                    <i className="fa-solid fa-file-export text-lg"></i> <span className="hidden sm:inline">เทมเพลต</span>
                                 </button>
                                 <button onClick={() => setIsAddModalOpen(true)} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm">
                                     <i className="fa-solid fa-plus text-lg"></i> เพิ่มรายการ
