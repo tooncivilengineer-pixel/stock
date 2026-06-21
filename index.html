@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบจัดการโครงการก่อสร้าง (Road Construction Tracker)</title>
     
-    <!-- ซ่อนคำเตือนของ React 18.3+ เกี่ยวกับ defaultProps ที่มาจากไลบรารี -->
     <script>
         const originalConsoleError = console.error;
         console.error = (...args) => {
@@ -14,79 +13,40 @@
         };
     </script>
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- ใช้ CDN ที่เสถียรขึ้น (ระบุเวอร์ชันชัดเจน) -->
-    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
-    <!-- Recharts (สำหรับวาดกราฟ) -->
-    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.13.3/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
 
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+    <!-- โหลด Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-    <!-- CSS สำหรับโหมดการพิมพ์ (Print Mode) -->
     <style>
         @media print {
             body { background-color: white !important; }
             .shadow-sm, .shadow-xl { box-shadow: none !important; }
             .border { border-color: #E5E7EB !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            @page { size: A4 landscape; margin: 10mm; }
+            /* ซ่อน Scrollbar เวลาปริ้น */
             ::-webkit-scrollbar { display: none; }
         }
+        @page { size: A4 landscape; margin: 10mm; }
     </style>
-
-    <!-- ========================================== -->
-    <!-- ตั้งค่า Firebase (สำหรับใช้งานออนไลน์) -->
-    <!-- ========================================== -->
-    <script>
-        const __firebase_config = JSON.stringify({
-            apiKey: "AIzaSyDSHLJFvdudB3QR2oZA3gLLNUp5Ka7fVHc",
-            authDomain: "construction-ppao.firebaseapp.com",
-            projectId: "construction-ppao",
-            storageBucket: "construction-ppao.firebasestorage.app",
-            messagingSenderId: "976092696551",
-            appId: "1:976092696551:web:dfcd5d6201d47f61ce3742",
-            measurementId: "G-19K5Y7YSH0"
-        });
-        const __app_id = "construction-ppao-tracker";
-    </script>
-    <!-- ========================================== -->
-
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
     
-    <!-- เพิ่ม Loading UI ป้องกันจอขาว หากโหลดไม่ขึ้นจะค้างที่หน้านี้ -->
-    <div id="root">
-        <div class="min-h-screen flex flex-col items-center justify-center text-gray-500">
-            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i>
-            <p class="text-lg font-medium text-gray-700">กำลังโหลดระบบ...</p>
-            <p class="text-sm mt-2">หากหน้านี้ค้างนานกว่า 10 วินาที โปรดรีเฟรชหน้าเว็บใหม่</p>
-        </div>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        window.firebaseAPI = { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot };
-        window.dispatchEvent(new Event('firebaseLoaded'));
-    </script>
+    <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useMemo, useRef, useEffect } = React;
-        
-        // ป้องกันแอปพัง หากโหลดไลบรารีกราฟไม่สำเร็จ
-        const Recharts = window.Recharts || {};
-        const { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+        const { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
 
         function App() {
             const [user, setUser] = useState(null);
@@ -104,7 +64,6 @@
 
             const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
             const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-            
             const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState(false);
             const [editPlanWeeks, setEditPlanWeeks] = useState('');
 
@@ -113,10 +72,12 @@
             
             const [updateQty, setUpdateQty] = useState('');
             const [updatePct, setUpdatePct] = useState('');
-            
             const [newItem, setNewItem] = useState({ name: '', unit: 'ตร.ม.', totalQty: '', totalAmount: '' });
-            const fileInputRef = useRef(null);
-            const importFileRef = useRef(null);
+            
+            const fileInputRef = useRef(null);      // สำหรับ CSV
+            const importFileRef = useRef(null);    // สำหรับ JSON (กู้คืนข้อมูล)
+
+            const [printMode, setPrintMode] = useState(null); // 'boq' หรือ 'weekly'
 
             const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' });
             const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
@@ -126,84 +87,79 @@
 
             const [db, setDb] = useState(null);
             const [auth, setAuth] = useState(null);
-            const [appId, setAppId] = useState('default-app-id');
+            const appId = "construction-ppao-tracker";
+
+            // จัดการล้างสถานะ Print Mode หลังจากพิมพ์เสร็จ
+            useEffect(() => {
+                const handleAfterPrint = () => setPrintMode(null);
+                window.addEventListener('afterprint', handleAfterPrint);
+                return () => window.removeEventListener('afterprint', handleAfterPrint);
+            }, []);
 
             useEffect(() => {
                 const initFirebase = () => {
-                    if (!window.firebaseAPI) return;
-                    const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore } = window.firebaseAPI;
-                    
                     try {
-                        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-                        if(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("ใส่_") === -1) {
-                            const app = initializeApp(firebaseConfig);
-                            const fbAuth = getAuth(app);
-                            const fbDb = getFirestore(app);
-                            setAuth(fbAuth);
-                            setDb(fbDb);
-                            setAppId(typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
+                        if (!window.firebase) return;
+                        
+                        const firebaseConfig = {
+                            apiKey: "AIzaSyDSHLJFvdudB3QR2oZA3gLLNUp5Ka7fVHc",
+                            authDomain: "construction-ppao.firebaseapp.com",
+                            projectId: "construction-ppao",
+                            storageBucket: "construction-ppao.firebasestorage.app",
+                            messagingSenderId: "976092696551",
+                            appId: "1:976092696551:web:dfcd5d6201d47f61ce3742"
+                        };
 
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                signInWithCustomToken(fbAuth, __initial_auth_token).catch(() => signInAnonymously(fbAuth).catch(() => setIsDataLoaded(true)));
-                            } else {
-                                signInAnonymously(fbAuth).catch(() => setIsDataLoaded(true));
-                            }
-
-                            onAuthStateChanged(fbAuth, (currentUser) => {
-                                setUser(currentUser);
-                                if (!currentUser) setIsDataLoaded(true);
-                            });
-                        } else {
-                            setIsDataLoaded(true); 
+                        if (!firebase.apps.length) {
+                            firebase.initializeApp(firebaseConfig);
                         }
+                        
+                        const fbAuth = firebase.auth();
+                        const fbDb = firebase.firestore();
+                        
+                        setAuth(fbAuth);
+                        setDb(fbDb);
+
+                        fbAuth.signInAnonymously().catch(() => setIsDataLoaded(true));
+
+                        fbAuth.onAuthStateChanged((currentUser) => {
+                            setUser(currentUser);
+                            if (!currentUser) setIsDataLoaded(true);
+                        });
                     } catch (e) {
                         console.error("Firebase init failed:", e);
                         setIsDataLoaded(true);
                     }
                 };
-
-                if (window.firebaseAPI) initFirebase();
-                else window.addEventListener('firebaseLoaded', initFirebase);
-                return () => window.removeEventListener('firebaseLoaded', initFirebase);
+                initFirebase();
             }, []);
 
+            // ดึงข้อมูล
             useEffect(() => {
-                if (!user || !db || !window.firebaseAPI) return;
-                const { collection, onSnapshot } = window.firebaseAPI;
-                
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'projects');
-                const unsubscribe = onSnapshot(colRef, (snapshot) => {
+                if (!user || !db) return;
+                const colRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects');
+                const unsubscribe = colRef.onSnapshot((snapshot) => {
                     const projData = [];
-                    snapshot.forEach(docSnap => {
-                        projData.push({ id: docSnap.id, ...docSnap.data() });
-                    });
+                    snapshot.forEach(docSnap => { projData.push({ id: docSnap.id, ...docSnap.data() }); });
                     projData.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
                     setProjects(projData);
                     setIsDataLoaded(true);
-                }, (error) => {
-                    console.error("Fetch Data:", error);
-                    setIsDataLoaded(true);
-                });
-
+                }, (error) => { console.error("Fetch Data Error:", error); setIsDataLoaded(true); });
                 return () => unsubscribe();
-            }, [user, db, appId]);
+            }, [user, db]);
 
+            // บันทึกข้อมูล
             useEffect(() => {
-                if (!user || !db || !activeProjectId || !isDataLoaded || !window.firebaseAPI) return;
-                const { doc, setDoc } = window.firebaseAPI;
-                
+                if (!user || !db || !activeProjectId || !isDataLoaded) return;
                 const saveData = async () => {
                     try {
-                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projects', activeProjectId);
-                        await setDoc(docRef, { items, weeks: projectWeeks, updatedAt: Date.now() }, { merge: true });
-                    } catch (error) {
-                        // ignore
-                    }
+                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(activeProjectId);
+                        await docRef.set({ items, weeks: projectWeeks, updatedAt: Date.now() }, { merge: true });
+                    } catch (error) { console.error("Save Data Error:", error); }
                 };
-                
                 const timer = setTimeout(() => { saveData(); }, 500);
                 return () => clearTimeout(timer);
-            }, [items, projectWeeks, user, activeProjectId, isDataLoaded, db, appId]);
+            }, [items, projectWeeks, user, activeProjectId, isDataLoaded, db]);
 
             const handleCreateProject = async (e) => {
                 e.preventDefault();
@@ -220,10 +176,9 @@
                     updatedAt: Date.now() 
                 };
 
-                if (user && db && window.firebaseAPI) {
-                    const { doc, setDoc } = window.firebaseAPI;
-                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projects', projectId);
-                    await setDoc(docRef, newProject);
+                if (user && db) {
+                    const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(projectId);
+                    await docRef.set(newProject);
                 } else {
                     setProjects(prev => [{ id: projectId, ...newProject }, ...prev]);
                 }
@@ -232,15 +187,69 @@
                 setIsNewProjectModalOpen(false);
             };
 
+            // ---- ฟังก์ชันสำรอง และ กู้คืนข้อมูล JSON ----
+            const handleExportData = () => {
+                if (projects.length === 0) {
+                    showAlert('แจ้งเตือน', 'ไม่มีข้อมูลโครงการให้สำรองครับ');
+                    return;
+                }
+                const dataStr = JSON.stringify(projects, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `RoadTracker_Backup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const handleImportData = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (Array.isArray(importedData)) {
+                            if (user && db) {
+                                let hasError = false;
+                                for (const proj of importedData) {
+                                    try {
+                                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(proj.id);
+                                        await docRef.set(proj);
+                                    } catch (err) {
+                                        hasError = true;
+                                        if(err.code === 'permission-denied') {
+                                            showAlert('ข้อผิดพลาด', 'อัปโหลดไม่สำเร็จ! กรุณาตรวจสอบสิทธิ์ฐานข้อมูล Firebase');
+                                            return;
+                                        }
+                                    }
+                                }
+                                if (!hasError) showAlert('สำเร็จ', 'นำเข้าและกู้คืนข้อมูลขึ้นคลาวด์เรียบร้อยแล้วครับ!');
+                            } else {
+                                setProjects(importedData);
+                                showAlert('สำเร็จ', 'นำเข้าและกู้คืนข้อมูลสำเร็จ!');
+                            }
+                        } else {
+                            showAlert('ข้อผิดพลาด', 'รูปแบบไฟล์ไม่ถูกต้องครับ โปรดใช้ไฟล์ Backup .json');
+                        }
+                    } catch (error) {
+                        showAlert('ข้อผิดพลาด', 'ไม่สามารถอ่านไฟล์ได้ครับ: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                setTimeout(() => { e.target.value = null; }, 100);
+            };
+
             const handleSavePlanSettings = async (e) => {
                 e.preventDefault();
                 const wks = parseInt(editPlanWeeks);
                 if (wks > 0 && activeProjectId) {
                     setProjects(prev => prev.map(p => p.id === activeProjectId ? {...p, plannedWeeks: wks} : p));
-                    if (user && db && window.firebaseAPI) {
-                        const { doc, setDoc } = window.firebaseAPI;
-                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projects', activeProjectId);
-                        await setDoc(docRef, { plannedWeeks: wks }, { merge: true });
+                    if (user && db) {
+                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(activeProjectId);
+                        await docRef.set({ plannedWeeks: wks }, { merge: true });
                     }
                 }
                 setIsEditPlanModalOpen(false);
@@ -270,61 +279,15 @@
 
             const handleDeleteProject = (projectId, e) => {
                 e.stopPropagation(); 
-                showConfirm('ยืนยันการลบโครงการ', 'คำเตือน: คุณต้องการลบโครงการนี้และข้อมูลทั้งหมดใช่หรือไม่? (ไม่สามารถกู้คืนได้)', async () => {
-                    if (user && db && window.firebaseAPI) {
-                        const { doc, deleteDoc } = window.firebaseAPI;
-                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projects', projectId);
-                        await deleteDoc(docRef);
+                showConfirm('ยืนยันการลบ', 'คำเตือน: คุณต้องการลบโครงการนี้ใช่หรือไม่?', async () => {
+                    if (user && db) {
+                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(projectId);
+                        await docRef.delete();
                     } else {
                         setProjects(prev => prev.filter(p => p.id !== projectId));
                     }
                     if (activeProjectId === projectId) handleCloseProject();
                 });
-            };
-
-            const handleExportData = () => {
-                if (projects.length === 0) {
-                    showAlert('แจ้งเตือน', 'ไม่มีข้อมูลโครงการให้สำรองครับ');
-                    return;
-                }
-                const dataStr = JSON.stringify(projects, null, 2);
-                const blob = new Blob([dataStr], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `RoadTracker_Backup_${new Date().toISOString().slice(0,10)}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-
-            const handleImportData = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    try {
-                        const importedData = JSON.parse(event.target.result);
-                        if (Array.isArray(importedData)) {
-                            if (user && db && window.firebaseAPI) {
-                                const { doc, setDoc } = window.firebaseAPI;
-                                for (const proj of importedData) {
-                                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projects', proj.id);
-                                    await setDoc(docRef, proj);
-                                }
-                            } else {
-                                setProjects(importedData);
-                            }
-                            showAlert('สำเร็จ', 'นำเข้าและกู้คืนข้อมูลโครงการเรียบร้อยแล้วครับ!');
-                        } else {
-                            showAlert('ข้อผิดพลาด', 'รูปแบบไฟล์ไม่ถูกต้องครับ');
-                        }
-                    } catch (error) {
-                        showAlert('ข้อผิดพลาด', 'ไม่สามารถอ่านไฟล์ได้ครับ: ' + error.message);
-                    }
-                };
-                reader.readAsText(file);
-                setTimeout(() => { e.target.value = null; }, 100);
             };
 
             const calculateProjectProgress = (project) => {
@@ -354,9 +317,8 @@
             };
 
             const weekIndex = projectWeeks.findIndex(w => w.id === activeWeekId);
-            const relevantWeeks = projectWeeks.slice(0, Math.max(0, weekIndex + 1));
+            const relevantWeeks = projectWeeks.slice(0, weekIndex + 1);
 
-            // --- คำนวณ BOQ ---
             const summary = useMemo(() => {
                 let totalProjectValue = 0;
                 let totalCompletedValue = 0;
@@ -386,7 +348,7 @@
                     sumWeightDisp += itemWeightDisp;
 
                     let itemPrevQty = 0;
-                    relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
+                    relevantWeeks.slice(0, relevantWeeks.length - 1).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
                     const itemThisWeekQty = item.progressByWeek?.[activeWeekId] || 0;
                     const totalCompleted = itemPrevQty + itemThisWeekQty;
 
@@ -426,7 +388,7 @@
                     sumUnitPrice,
                     sumWeightDisp
                 };
-            }, [items, activeWeekId, projectWeeks, relevantWeeks]);
+            }, [items, activeWeekId, projectWeeks]);
 
             const chartData = useMemo(() => {
                 const proj = projects.find(p => p.id === activeProjectId);
@@ -517,7 +479,7 @@
 
                 setItems(prevItems => prevItems.map(item => {
                     if (item.id === currentItem.id) {
-                        const prevQty = relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).reduce((sum, w) => sum + (item.progressByWeek?.[w.id] || 0), 0);
+                        const prevQty = relevantWeeks.slice(0, relevantWeeks.length - 1).reduce((sum, w) => sum + (item.progressByWeek?.[w.id] || 0), 0);
                         const maxAllowed = item.totalQty - prevQty;
                         const safeThisWeekQty = Math.min(thisWeekQty, maxAllowed);
 
@@ -563,11 +525,12 @@
                 });
             };
 
-            const handlePrint = () => {
+            const handlePrint = (mode = 'boq') => {
                 if (window.top !== window.self) {
-                    showAlert('การพิมพ์ถูกบล็อกในหน้าต่างพรีวิว', 'เนื่องจากข้อจำกัดด้านความปลอดภัยของระบบพรีวิว เบราว์เซอร์จึงบล็อกการพิมพ์\n\n📌 โปรดเปิดในหน้าต่างใหม่หรือคัดลอกโค้ดไปรันในเครื่องเพื่อใช้ฟังก์ชันพิมพ์ PDF ครับ');
+                    showAlert('แจ้งเตือน', 'เบราว์เซอร์บล็อกการพิมพ์ในหน้าต่างพรีวิว\n📌 โปรดเปิดหน้าต่างใหม่หรือโหลดไปรันในเครื่องครับ');
                 } else {
-                    window.print();
+                    setPrintMode(mode);
+                    setTimeout(() => { window.print(); }, 300);
                 }
             };
 
@@ -590,7 +553,6 @@
                     try {
                         const arrayBuffer = event.target.result;
                         let text = new TextDecoder('utf-8').decode(arrayBuffer);
-                        // แก้บั๊กตรงนี้: เปลี่ยนจากการเช็ค '' (ซึ่งเป็นจริงเสมอ) เป็นเช็คอักขระแปลกประหลาด '' (กรณีเปิดไฟล์ Windows-874 ด้วย UTF-8)
                         if (text.includes('')) text = new TextDecoder('windows-874').decode(arrayBuffer);
                         
                         const lines = text.split(/\r?\n|\r/).filter(line => line.trim() !== '');
@@ -601,9 +563,7 @@
 
                         for (let i = 1; i < lines.length; i++) {
                             const lineText = lines[i];
-                            let columns = [];
-                            let currentVal = '';
-                            let insideQuotes = false;
+                            let columns = []; let currentVal = ''; let insideQuotes = false;
                             
                             for (let j = 0; j < lineText.length; j++) {
                                 const char = lineText[j];
@@ -617,18 +577,16 @@
                             if (columns.length >= 5) {
                                 const name = columns[0];
                                 const unit = columns[1] || 'หน่วย';
-                                const extractNumber = (val) => parseFloat(val.toString().replace(/[^0-9.-]/g, '')) || 0;
-
+                                const extractNumber = (val) => parseFloat(val?.toString().replace(/[^0-9.-]/g, '')) || 0;
                                 const totalQty = extractNumber(columns[2]);
                                 const totalAmount = extractNumber(columns[3]); 
-                                const unitPrice = totalQty > 0 ? totalAmount / totalQty : 0;
                                 const percentage = extractNumber(columns[4]);
                                 
                                 if (name && name !== '') {
                                     const completedQty = (totalQty * Math.min(100, percentage)) / 100;
-                                    parsedItems.push({
-                                        name, unit, totalQty, unitPrice, totalAmount, 
-                                        progressByWeek: { [activeWeekId]: completedQty }
+                                    parsedItems.push({ 
+                                        name, unit, totalQty, totalAmount, 
+                                        progressByWeek: { [activeWeekId]: completedQty } 
                                     });
                                 }
                             }
@@ -640,12 +598,12 @@
                                 const newItemsWithId = parsedItems.map((item, index) => ({ ...item, id: maxId + index + 1 }));
                                 return [...prev, ...newItemsWithId];
                             });
-                            showAlert('สำเร็จ', `อัปโหลดสำเร็จ! นำเข้าข้อมูลจำนวน ${parsedItems.length} รายการ (ใน ${projectWeeks.find(w=>w.id===activeWeekId)?.name})`);
+                            showAlert('สำเร็จ', `อัปโหลดสำเร็จ! นำเข้าข้อมูลจำนวน ${parsedItems.length} รายการ`);
                         } else {
-                            showAlert('แจ้งเตือน', "ไม่สามารถอ่านข้อมูลได้เลยครับ");
+                            showAlert('ข้อผิดพลาด', 'ไม่สามารถอ่านข้อมูลได้เลยครับ โปรดตรวจสอบความถูกต้องของไฟล์');
                         }
                     } catch (error) {
-                        showAlert('ข้อผิดพลาด', "เกิดข้อผิดพลาดในการอ่านไฟล์: " + error.message);
+                        showAlert('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
                     }
                 };
                 reader.readAsArrayBuffer(file);
@@ -688,9 +646,6 @@
                 </React.Fragment>
             );
 
-            // ==========================================
-            // Render Dashboard
-            // ==========================================
             if (!activeProjectId) {
                 return (
                     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800">
@@ -703,9 +658,11 @@
                                     <p className="text-gray-500 mt-1">จัดการและติดตามความก้าวหน้าหลายโครงการในที่เดียว</p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
+                                    {/* ซ่อน input file รับ JSON */}
                                     <input type="file" accept=".json" className="hidden" ref={importFileRef} onChange={handleImportData} />
+                                    
                                     <button onClick={() => importFileRef.current?.click()} className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm" title="นำเข้าไฟล์ Backup (.json)">
-                                        <i className="fa-solid fa-file-import"></i> กู้คืนข้อมูล
+                                        <i className="fa-solid fa-file-import"></i> กู้คืนข้อมูล JSON
                                     </button>
                                     <button onClick={handleExportData} className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm" title="บันทึกข้อมูลเก็บไว้ในเครื่อง (.json)">
                                         <i className="fa-solid fa-file-export"></i> สำรองข้อมูล
@@ -727,8 +684,7 @@
                                     projects.map(project => {
                                         const progress = calculateProjectProgress(project);
                                         const isCompleted = progress >= 100;
-                                        const dateStr = project.updatedAt || project.createdAt;
-                                        const lastUpdatedDate = dateStr ? new Date(dateStr).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+                                        const lastUpdatedDate = new Date(project.updatedAt || project.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
 
                                         return (
                                             <div key={project.id} onClick={() => handleOpenProject(project)} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all group relative">
@@ -775,11 +731,11 @@
                                     <form onSubmit={handleCreateProject} className="p-5 space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อโครงการ</label>
-                                            <input type="text" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="เช่น โครงการปรับปรุงผิวจราจร..." className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required autoFocus />
+                                            <input type="text" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="เช่น โครงการปรับปรุงผิวจราจร สาย..." className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required autoFocus />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">ระยะเวลาโครงการตามสัญญา (สัปดาห์)</label>
-                                            <input type="number" min="1" value={plannedWeeksInput} onChange={(e) => setPlannedWeeksInput(e.target.value)} placeholder="เช่น 50" className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required />
+                                            <input type="number" min="1" value={plannedWeeksInput} onChange={(e) => setPlannedWeeksInput(e.target.value)} placeholder="เช่น 12" className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" required />
                                             <p className="text-xs text-gray-500 mt-1">ใช้วาดเส้น S-Curve แผนงานเป้าหมาย 100%</p>
                                         </div>
                                         <div className="pt-2 flex justify-end gap-2">
@@ -795,14 +751,197 @@
                 );
             }
 
-            // ==========================================
-            // Render Project View
-            // ==========================================
             const currentProjectName = projects.find(p => p.id === activeProjectId)?.name || 'โครงการ';
+
+            if (printMode === 'boq') {
+                return (
+                    <div className="bg-white font-sans text-gray-900 print:p-0 w-full mx-auto p-8 flex flex-col min-h-screen print:min-h-0 print:block">
+                        <style>{`@media print { @page { size: A4 landscape; margin: 10mm; } }`}</style>
+                        
+                        <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+                            <h1 className="text-2xl font-bold mb-2">ตารางสรุปปริมาณงาน (BOQ) และความก้าวหน้ารายสัปดาห์</h1>
+                            <h2 className="text-lg font-semibold">{currentProjectName}</h2>
+                        </div>
+
+                        <div className="w-full">
+                            <table className="w-full border-collapse border border-gray-800 text-[11px]">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="border border-gray-800 p-1.5 text-center w-10" rowSpan="2">ลำดับ</th>
+                                        <th className="border border-gray-800 p-1.5 text-center" rowSpan="2">รายการ</th>
+                                        <th className="border border-gray-800 p-1.5 text-center w-12" rowSpan="2">หน่วย</th>
+                                        <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">ปริมาณรวม</th>
+                                        <th className="border border-gray-800 p-1.5 text-center w-20" rowSpan="2">ราคา/หน่วย</th>
+                                        <th className="border border-gray-800 p-1.5 text-center w-24" rowSpan="2">เงินรวม (฿)</th>
+                                        <th className="border border-gray-800 p-1.5 text-center bg-blue-50 print:bg-gray-100" colSpan={projectWeeks.length}>ปริมาณผลงานที่ทำได้แต่ละสัปดาห์ (Quantity)</th>
+                                        <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">รวมสะสม</th>
+                                        <th className="border border-gray-800 p-1.5 text-center w-16" rowSpan="2">คงเหลือ</th>
+                                    </tr>
+                                    <tr>
+                                        {projectWeeks.map((w, idx) => (
+                                            <th key={w.id} className="border border-gray-800 p-1.5 text-center font-normal whitespace-nowrap bg-blue-50/50 print:bg-gray-50 w-12">
+                                                W{idx + 1}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {items.length === 0 ? (
+                                        <tr><td colSpan={projectWeeks.length + 8} className="text-center p-4">ไม่มีรายการงาน</td></tr>
+                                    ) : (
+                                        items.map((item, idx) => {
+                                            const itemTotalValue = item.totalAmount || 0;
+                                            const uprice = item.totalQty > 0 ? itemTotalValue / item.totalQty : 0;
+                                            
+                                            let totalQty = 0;
+                                            projectWeeks.forEach(w => { totalQty += (item.progressByWeek?.[w.id] || 0); });
+                                            const remaining = item.totalQty - totalQty;
+
+                                            return (
+                                                <tr key={item.id}>
+                                                    <td className="border border-gray-800 p-1.5 text-center">{idx + 1}</td>
+                                                    <td className="border border-gray-800 p-1.5">{item.name}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right">{formatNumber(item.totalQty)}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right">{formatNumber(itemTotalValue)}</td>
+                                                    {projectWeeks.map((w) => {
+                                                        const wkQty = item.progressByWeek?.[w.id] || 0;
+                                                        return (
+                                                            <td key={w.id} className="border border-gray-800 p-1.5 text-right text-blue-700 print:text-black">
+                                                                {wkQty > 0 ? formatNumber(wkQty) : '-'}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-800 print:text-black">{formatNumber(totalQty)}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right font-bold text-red-600 print:text-black">{formatNumber(remaining)}</td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="bg-gray-100 font-bold text-xs">
+                                        <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมทั้งสิ้น:</td>
+                                        <td className="border border-gray-800 p-2 text-right">฿ {formatNumber(summary.totalProjectValue)}</td>
+                                        <td colSpan={projectWeeks.length} className="border border-gray-800 p-2 text-center text-gray-600 print:text-black">ความก้าวหน้ารวมสะสม: {summary.displayCumulativeProgress}%</td>
+                                        <td colSpan="2" className="border border-gray-800 p-2 text-right text-blue-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (printMode === 'weekly') {
+                const weeklyItems = items.filter(item => (item.progressByWeek?.[activeWeekId] || 0) > 0);
+                const currentWeekName = projectWeeks.find(w => w.id === activeWeekId)?.name || '';
+                let totalWeeklyAmount = 0;
+
+                return (
+                    <div className="bg-white font-sans text-gray-900 print:p-0 w-full max-w-[210mm] mx-auto p-8 flex flex-col min-h-screen print:min-h-0 print:block">
+                        {/* บังคับกระดาษ A4 แนวตั้ง เฉพาะหน้านี้ */}
+                        <style>{`@media print { @page { size: A4 portrait; margin: 15mm; } }`}</style>
+                        
+                        <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+                            <h1 className="text-2xl font-bold mb-2">รายงานสรุปผลการดำเนินงาน</h1>
+                            <h2 className="text-lg font-semibold">{currentProjectName}</h2>
+                            <p className="text-gray-600 mt-1">ประจำ: {currentWeekName}</p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="border-2 border-blue-200 bg-blue-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                <p className="text-xs text-blue-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานสัปดาห์นี้</p>
+                                <p className="font-bold text-lg text-blue-800 print:text-black">฿ {formatNumber(summary.thisWeekValue)}</p>
+                            </div>
+                            <div className="border-2 border-emerald-200 bg-emerald-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                <p className="text-xs text-emerald-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานรวมสะสม</p>
+                                <p className="font-bold text-lg text-emerald-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</p>
+                            </div>
+                            <div className="border-2 border-purple-200 bg-purple-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                <p className="text-xs text-purple-600 font-medium mb-1 print:text-gray-600">ความก้าวหน้ารวมสะสม</p>
+                                <p className="font-bold text-lg text-purple-800 print:text-black">{summary.displayCumulativeProgress}%</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <div className="flex justify-between text-xs font-bold mb-1.5 text-gray-700">
+                                <span>ความก้าวหน้าโครงการเทียบกับเป้าหมาย (100%)</span>
+                                <span>{summary.displayCumulativeProgress}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden border border-gray-300 print:bg-gray-100">
+                                <div className="bg-green-500 h-full transition-all print:bg-gray-500" style={{width: `${summary.displayCumulativeProgress}%`}}></div>
+                            </div>
+                        </div>
+
+                        <div className="mb-8 flex-1">
+                            <h3 className="font-bold mb-2 text-sm text-gray-800">รายละเอียดงานที่ดำเนินการในสัปดาห์นี้:</h3>
+                            <table className="w-full border-collapse border border-gray-800 text-xs">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="border border-gray-800 p-2 text-center w-12">ลำดับ</th>
+                                        <th className="border border-gray-800 p-2 text-left">รายการงานที่ทำ</th>
+                                        <th className="border border-gray-800 p-2 text-center w-16">หน่วย</th>
+                                        <th className="border border-gray-800 p-2 text-right w-24">ปริมาณ (สัปดาห์นี้)</th>
+                                        <th className="border border-gray-800 p-2 text-right w-28">ราคา/หน่วย (฿)</th>
+                                        <th className="border border-gray-800 p-2 text-right w-28">รวมเป็นเงิน (฿)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {weeklyItems.length === 0 ? (
+                                        <tr><td colSpan="6" className="text-center p-6 text-gray-500 italic">ไม่มีผลการดำเนินงานในสัปดาห์นี้</td></tr>
+                                    ) : (
+                                        weeklyItems.map((item, idx) => {
+                                            const qty = item.progressByWeek[activeWeekId];
+                                            const uprice = item.totalQty > 0 ? (item.totalAmount / item.totalQty) : 0;
+                                            const amt = qty * uprice;
+                                            totalWeeklyAmount += amt;
+                                            return (
+                                                <tr key={item.id}>
+                                                    <td className="border border-gray-800 p-1.5 text-center">{idx + 1}</td>
+                                                    <td className="border border-gray-800 p-1.5">{item.name}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-700 print:text-black">{formatNumber(qty)}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
+                                                    <td className="border border-gray-800 p-1.5 text-right font-bold">{formatNumber(amt)}</td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                                {weeklyItems.length > 0 && (
+                                    <tfoot>
+                                        <tr className="bg-gray-100 font-bold text-sm">
+                                            <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมมูลค่างานสัปดาห์นี้:</td>
+                                            <td className="border border-gray-800 p-2 text-right text-blue-800 font-black print:text-black">฿ {formatNumber(totalWeeklyAmount)}</td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                        
+                        <div className="flex justify-around mt-8 pt-8">
+                            <div className="text-center w-64">
+                                <p className="text-sm font-medium mb-10">ผู้รายงาน / ผู้รับจ้าง</p>
+                                <p className="mb-2 border-b border-gray-800 pb-1 text-transparent select-none">ลายเซ็น</p>
+                                <p className="text-xs text-gray-600">(........................................................)</p>
+                                <p className="text-xs mt-2 text-gray-500">วันที่......./......./.......</p>
+                            </div>
+                            <div className="text-center w-64">
+                                <p className="text-sm font-medium mb-10">ผู้ตรวจรับงาน / คณะกรรมการ</p>
+                                <p className="mb-2 border-b border-gray-800 pb-1 text-transparent select-none">ลายเซ็น</p>
+                                <p className="text-xs text-gray-600">(........................................................)</p>
+                                <p className="text-xs mt-2 text-gray-500">วันที่......./......./.......</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800 print:bg-white print:p-0">
-                    <div className="max-w-[1400px] mx-auto space-y-6 print:space-y-4">
+                    <div className="max-w-6xl mx-auto space-y-6 print:space-y-4">
                         
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100 gap-4 print:border-none print:p-0 print:mb-4">
                             <div className="flex flex-col gap-2">
@@ -814,8 +953,11 @@
                                 </h1>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto print:hidden">
-                                <button onClick={handlePrint} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
-                                    <i className="fa-solid fa-print text-gray-500 text-lg"></i> <span className="hidden sm:inline">พิมพ์รายงาน (PDF)</span>
+                                <button onClick={() => handlePrint('boq')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
+                                    <i className="fa-solid fa-print text-gray-500 text-lg"></i> <span className="hidden lg:inline">พิมพ์ตาราง BOQ</span>
+                                </button>
+                                <button onClick={() => handlePrint('weekly')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg font-medium shadow-sm" title="พิมพ์เฉพาะรายการที่ทำในสัปดาห์ที่เลือก">
+                                    <i className="fa-solid fa-file-invoice text-lg"></i> <span className="hidden lg:inline">พิมพ์รายสัปดาห์</span>
                                 </button>
                                 <button onClick={handleDownloadTemplate} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
                                     <span className="hidden sm:inline">โหลดเทมเพลต CSV</span>
@@ -830,7 +972,6 @@
                             </div>
                         </div>
 
-                        {/* แถบควบคุมสัปดาห์ */}
                         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4 print:border-none print:p-0">
                             <div className="flex items-center gap-2">
                                 <i className="fa-solid fa-calendar-week text-blue-600 text-2xl"></i>
@@ -845,10 +986,7 @@
                                     <option key={w.id} value={w.id}>{w.name}</option>
                                 ))}
                             </select>
-                            <button 
-                                onClick={handleAddWeek} 
-                                className="print:hidden text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ml-auto"
-                            >
+                            <button onClick={handleAddWeek} className="print:hidden text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ml-auto">
                                 <i className="fa-solid fa-folder-plus text-sm"></i> ปิดงวด / เพิ่มสัปดาห์ถัดไป
                             </button>
                         </div>
@@ -872,65 +1010,44 @@
                                 <div className="text-2xl font-bold text-gray-900">฿ {formatNumber(summary.totalCompletedValue)}</div>
                                 <div className="text-sm text-gray-400 mt-1">จาก ฿ {formatNumber(summary.totalProjectValue)}</div>
                             </div>
-                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-100 bg-amber-50/30">
-                                <div className="flex items-center gap-3 text-amber-600 mb-2">
-                                    <i className="fa-solid fa-coins text-amber-500 text-2xl"></i>
-                                    <span className="font-medium">มูลค่าที่ทำได้สัปดาห์นี้</span>
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                                <div className="flex items-center gap-3 text-gray-500 mb-2">
+                                    <i className="fa-solid fa-boxes-stacked text-purple-500 text-2xl"></i>
+                                    <span className="font-medium">รายการงานทั้งหมด</span>
                                 </div>
-                                <div className="text-2xl font-bold text-amber-700">+ ฿ {formatNumber(summary.thisWeekValue)}</div>
+                                <div className="text-3xl font-bold text-gray-900">{summary.totalTasks} <span className="text-lg font-normal text-gray-500">รายการ</span></div>
                             </div>
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="flex items-center gap-3 text-gray-500 mb-2">
                                     <i className="fa-solid fa-circle-check text-emerald-500 text-2xl"></i>
-                                    <span className="font-medium">รายการที่เสร็จสมบูรณ์ 100%</span>
+                                    <span className="font-medium">งานที่เสร็จสมบูรณ์</span>
                                 </div>
-                                <div className="text-3xl font-bold text-gray-900">{summary.completedTasksCount} <span className="text-lg font-normal text-gray-500">/ {summary.totalTasks} รายการ</span></div>
+                                <div className="text-3xl font-bold text-gray-900">{summary.completedTasksCount} <span className="text-lg font-normal text-gray-500">รายการ</span></div>
                             </div>
                         </div>
 
-                        {/* แสดงผลกราฟ (S-Curve & Bar Chart) */}
-                        {chartData.length > 0 && Recharts.ComposedChart && (
+                        {chartData.length > 0 && (
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                                         <i className="fa-solid fa-chart-area text-blue-600 text-2xl"></i> กราฟแสดงความก้าวหน้าโครงการ (S-Curve)
                                     </h3>
-                                    <button 
-                                        onClick={() => { setEditPlanWeeks(projects.find(p=>p.id===activeProjectId)?.plannedWeeks || 12); setIsEditPlanModalOpen(true); }}
-                                        className="print:hidden text-sm text-gray-500 hover:text-blue-600 flex items-center gap-2 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-gray-200"
-                                    >
+                                    <button onClick={() => { setEditPlanWeeks(projects.find(p=>p.id===activeProjectId)?.plannedWeeks || 12); setIsEditPlanModalOpen(true); }} className="print:hidden text-sm text-gray-500 hover:text-blue-600 flex items-center gap-2 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-gray-200">
                                         <i className="fa-solid fa-gear text-sm"></i> ตั้งค่าแผนงาน (Plan)
                                     </button>
                                 </div>
-                                
                                 <div className="bg-blue-50 border border-blue-100 text-blue-800 text-sm p-4 rounded-xl mb-4 print:hidden flex items-start gap-3">
                                     <i className="fa-solid fa-lightbulb text-blue-500 text-xl shrink-0"></i>
-                                    <div>
-                                        <strong>ทริค:</strong> กราฟเส้นสะสมจะไต่ระดับค่อยๆ สูงขึ้นได้ ก็ต่อเมื่อคุณกดปุ่ม <b>"ปิดงวด / เพิ่มสัปดาห์ถัดไป"</b> และป้อนผลงานเพิ่มในสัปดาห์ใหม่ครับ (หากไม่มีผลงานเพิ่ม กราฟจะลากเป็นเส้นแนวนอนตามธรรมชาติของยอดสะสม)
-                                    </div>
+                                    <div><strong>ทริค:</strong> กราฟเส้นสะสมจะไต่ระดับค่อยๆ สูงขึ้นได้ ก็ต่อเมื่อคุณป้อนผลงานในตาราง แล้วกดปุ่ม <b>"ปิดงวด / เพิ่มสัปดาห์ถัดไป"</b> ด้านบน เพื่อบันทึกผลงานล็อคไว้ในสัปดาห์นั้นๆ ครับ</div>
                                 </div>
-
                                 <div className="h-[350px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
-                                            <YAxis 
-                                                yAxisId="left" 
-                                                axisLine={false} 
-                                                tickLine={false} 
-                                                tick={{fill: '#6B7280', fontSize: 12}} 
-                                                domain={[0, 100]}
-                                                tickFormatter={(val) => `${val}%`}
-                                            />
-                                            <Tooltip 
-                                                cursor={{fill: '#F3F4F6'}}
-                                                contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                                formatter={(value, name) => value !== null ? [`${value}%`, name] : ['-', name]}
-                                                animationDuration={300}
-                                            />
+                                            <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                                            <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value, name) => value !== null ? [`${value}%`, name] : ['-', name]} animationDuration={300} />
                                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                            <Bar isAnimationActive={true} animationDuration={1000} yAxisId="left" dataKey="ผลงานสัปดาห์นี้ (%)" barSize={35} fill="#60A5FA" radius={[4, 4, 0, 0]} />
                                             <Line isAnimationActive={true} animationDuration={1000} yAxisId="left" type="monotone" dataKey="แผนงาน (Plan)" stroke="#9CA3AF" strokeDasharray="5 5" strokeWidth={2} dot={false} activeDot={false} connectNulls />
                                             <Line isAnimationActive={true} animationDuration={1000} yAxisId="left" type="monotone" dataKey="สะสมจริง (Actual)" stroke="#10B981" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8, stroke: '#10B981', strokeWidth: 2 }} />
                                         </ComposedChart>
@@ -939,9 +1056,12 @@
                             </div>
                         )}
 
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden print:border-gray-300 print:shadow-none">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="p-5 border-b border-gray-100 bg-gray-50/50">
+                                <h2 className="text-lg font-bold text-gray-800">รายการบัญชีปริมาณงาน (BOQ / ตรวจสอบสต๊อคงาน)</h2>
+                            </div>
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse whitespace-nowrap print:whitespace-normal">
+                                <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 text-gray-600 text-sm border-b border-gray-200 print:bg-gray-100">
                                             <th className="p-3 font-bold border-r border-gray-200" rowSpan="2">รายการ</th>
@@ -985,7 +1105,7 @@
                                                     const displayUnitPrice = item.unitPrice !== undefined ? item.unitPrice : (item.totalQty > 0 ? itemTotalValue / item.totalQty : 0);
 
                                                     let itemPrevQty = 0;
-                                                    relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
+                                                    relevantWeeks.slice(0, relevantWeeks.length - 1).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
                                                     const itemThisWeekQty = item.progressByWeek?.[activeWeekId] || 0;
                                                     const totalCompleted = itemPrevQty + itemThisWeekQty;
                                                     const remaining = item.totalQty - totalCompleted;
@@ -1073,7 +1193,7 @@
                                                 <td className="p-3 text-center text-purple-700 text-lg">{summary.sumWeightDisp.toFixed(2)}%</td>
                                                 <td colSpan="2" className="p-3 text-right text-gray-600">ความก้าวหน้ารวมสะสม:</td>
                                                 <td className="p-3 text-right text-blue-700 text-lg">{summary.displayCumulativeProgress}%</td>
-                                                <td colSpan="2"></td>
+                                                <td colSpan="2" className="print:hidden"></td>
                                             </tr>
                                         </tfoot>
                                     )}
@@ -1120,7 +1240,6 @@
                                         <p className="text-sm text-gray-500 mb-1">รายการงาน</p>
                                         <p className="font-medium text-gray-900 border-b border-gray-100 pb-2">{currentItem.name}</p>
                                     </div>
-                                    
                                     <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
                                         <div>
                                             <p className="text-xs text-gray-500 mb-0.5">ปริมาณรวมทั้งโครงการ</p>
@@ -1129,11 +1248,10 @@
                                         <div>
                                             <p className="text-xs text-gray-500 mb-0.5">ยอดยกมา (ก่อนสัปดาห์นี้)</p>
                                             <p className="font-semibold text-blue-600">
-                                                {formatNumber(relevantWeeks.slice(0, Math.max(0, relevantWeeks.length - 1)).reduce((sum, w) => sum + (currentItem.progressByWeek?.[w.id] || 0), 0))} <span className="text-xs font-normal">{currentItem.unit}</span>
+                                                {formatNumber(relevantWeeks.slice(0, relevantWeeks.length - 1).reduce((sum, w) => sum + (currentItem.progressByWeek?.[w.id] || 0), 0))} <span className="text-xs font-normal">{currentItem.unit}</span>
                                             </p>
                                         </div>
                                     </div>
-
                                     <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
                                         <label className="block text-sm font-bold text-amber-800 mb-3">
                                             ระบุผลงานที่ทำได้ "เฉพาะในสัปดาห์นี้"
@@ -1158,36 +1276,40 @@
                         </div>
                     )}
 
-                    {/* Modal เพิ่มรายการใหม่ ให้กรอกหน่วยละ และคูณให้อัตโนมัติ */}
+                    {/* Modal เพิ่มรายการใหม่ */}
                     {isAddModalOpen && (
                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
-                                <div className="p-5 border-b flex justify-between items-center bg-gray-50">
-                                    <h3 className="font-bold text-gray-800">เพิ่มรายการงานใหม่</h3>
+                            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
+                                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                    <h3 className="font-bold text-gray-800 text-lg">เพิ่มรายการงานใหม่ (BOQ)</h3>
                                     <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-600"><i className="fa-solid fa-xmark text-lg"></i></button>
                                 </div>
                                 <form onSubmit={handleAddItem} className="p-5 space-y-4">
                                     <div>
-                                        <label className="block text-sm mb-1">ชื่อรายการงาน</label>
-                                        <input type="text" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} className="w-full border rounded-lg px-4 py-2 outline-none" required />
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อรายการงาน</label>
+                                        <input type="text" value={newItem.name} onChange={(e) => setNewItem({...newItem, name: e.target.value})} placeholder="เช่น งานตีเส้นจราจร" className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" required />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm mb-1">จำนวน (ปริมาณ)</label>
-                                            <input type="number" step="any" value={newItem.totalQty} onChange={e => setNewItem({...newItem, totalQty: e.target.value})} className="w-full border rounded-lg px-4 py-2 outline-none" required />
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">ปริมาณรวม</label>
+                                            <input type="number" step="any" value={newItem.totalQty} onChange={(e) => setNewItem({...newItem, totalQty: e.target.value})} placeholder="0" className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" required />
                                         </div>
                                         <div>
-                                            <label className="block text-sm mb-1">หน่วยนับ</label>
-                                            <input type="text" value={newItem.unit} onChange={e => setNewItem({...newItem, unit: e.target.value})} className="w-full border rounded-lg px-4 py-2 outline-none" required />
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">หน่วยนับ</label>
+                                            <input type="text" value={newItem.unit} onChange={(e) => setNewItem({...newItem, unit: e.target.value})} placeholder="ตร.ม." className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" required />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm mb-1">จำนวนเงินรวม (บาท)</label>
-                                        <input type="number" step="any" value={newItem.totalAmount} onChange={e => setNewItem({...newItem, totalAmount: e.target.value})} className="w-full border rounded-lg px-4 py-2 outline-none" required />
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนเงินรวม (บาท)</label>
+                                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                                            <i className="fa-solid fa-circle-exclamation"></i>
+                                            <p>ใช้คำนวณค่าน้ำหนัก (%) ของงาน</p>
+                                        </div>
+                                        <input type="number" step="any" value={newItem.totalAmount} onChange={(e) => setNewItem({...newItem, totalAmount: e.target.value})} placeholder="0.00" className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" required />
                                     </div>
-                                    <div className="flex justify-end gap-2 pt-2">
-                                        <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 bg-gray-100 rounded-lg">ยกเลิก</button>
-                                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">บันทึก</button>
+                                    <div className="pt-4 flex justify-end gap-2">
+                                        <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">ยกเลิก</button>
+                                        <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm">บันทึกรายการ</button>
                                     </div>
                                 </form>
                             </div>
@@ -1195,7 +1317,7 @@
                     )}
 
                     {/* Modal ดูกราฟรายไอเท็ม */}
-                    {chartItem && Recharts.ComposedChart && (
+                    {chartItem && (
                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white rounded-2xl w-full max-w-4xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
                                 <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
