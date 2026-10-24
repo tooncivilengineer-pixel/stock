@@ -78,7 +78,6 @@
 
             // State สำหรับควบคุมโหมด Print Preview
             const [printMode, setPrintMode] = useState(null); // 'boq' หรือ 'weekly'
-
             const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' });
             const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
@@ -130,7 +129,10 @@
                 const colRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects');
                 const unsubscribe = colRef.onSnapshot((snapshot) => {
                     const projData = [];
-                    snapshot.forEach(docSnap => { projData.push({ id: docSnap.id, ...docSnap.data() }); });
+                    snapshot.forEach(docSnap => {
+                        const { weeklyMemoByWeek: _retiredReportData, ...projectData } = docSnap.data();
+                        projData.push({ id: docSnap.id, ...projectData });
+                    });
                     projData.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
                     setProjects(projData);
                     setIsDataLoaded(true);
@@ -181,7 +183,8 @@
                     showAlert('แจ้งเตือน', 'ไม่มีข้อมูลโครงการให้สำรองครับ');
                     return;
                 }
-                const dataStr = JSON.stringify(projects, null, 2);
+                const cleanProjects = projects.map(({ weeklyMemoByWeek: _retiredReportData, ...project }) => project);
+                const dataStr = JSON.stringify(cleanProjects, null, 2);
                 const blob = new Blob([dataStr], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
@@ -198,9 +201,10 @@
                     try {
                         const importedData = JSON.parse(event.target.result);
                         if (Array.isArray(importedData)) {
+                            const cleanImportedData = importedData.map(({ weeklyMemoByWeek: _retiredReportData, ...project }) => project);
                             if (user && db) {
                                 let hasError = false;
-                                for (const proj of importedData) {
+                                for (const proj of cleanImportedData) {
                                     try {
                                         const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(proj.id);
                                         await docRef.set(proj);
@@ -214,7 +218,7 @@
                                 }
                                 if (!hasError) showAlert('สำเร็จ', 'นำเข้าและกู้คืนข้อมูลขึ้นคลาวด์เรียบร้อยแล้วครับ!');
                             } else {
-                                setProjects(importedData);
+                                setProjects(cleanImportedData);
                                 showAlert('สำเร็จ', 'นำเข้าและกู้คืนข้อมูลสำเร็จ!');
                             }
                         } else {
@@ -287,7 +291,8 @@
                     totalProjectValue += itemTotalValue;
                     let accumulatedQty = 0;
                     pWeeks.forEach(w => { accumulatedQty += (item.progressByWeek?.[w.id] || 0); });
-                    const progressRatio = item.totalQty > 0 ? (accumulatedQty / item.totalQty) : 0;
+                    const safeAccumulatedQty = item.totalQty > 0 ? Math.min(Math.max(accumulatedQty, 0), item.totalQty) : 0;
+                    const progressRatio = item.totalQty > 0 ? (safeAccumulatedQty / item.totalQty) : 0;
                     totalCompletedValue += (itemTotalValue * progressRatio);
                 });
                 return totalProjectValue === 0 ? 0 : ((totalCompletedValue / totalProjectValue) * 100).toFixed(2);
@@ -305,28 +310,20 @@
 
             const summary = useMemo(() => {
                 let totalProjectValue = 0;
+                let previousCompletedValue = 0;
                 let totalCompletedValue = 0;
                 let thisWeekValue = 0;
                 let completedTasksCount = 0;
-                let displayCumulativeProgress = 0;
                 let sumUnitPrice = 0;
                 let sumWeightDisp = 0;
 
                 items.forEach(item => { totalProjectValue += (item.totalAmount || 0); });
 
-                items.forEach((item, index) => {
+                items.forEach((item) => {
                     const itemTotalValue = item.totalAmount || 0;
                     const displayUnitPrice = item.unitPrice !== undefined ? item.unitPrice : (item.totalQty > 0 ? itemTotalValue / item.totalQty : 0);
-                    
-                    let itemWeightDisp = 0;
-                    if (totalProjectValue > 0) {
-                        if (index === items.length - 1) {
-                            itemWeightDisp = parseFloat((100 - sumWeightDisp).toFixed(2));
-                            if(itemWeightDisp < 0) itemWeightDisp = 0;
-                        } else {
-                            itemWeightDisp = parseFloat(((itemTotalValue / totalProjectValue) * 100).toFixed(2));
-                        }
-                    }
+
+                    const itemWeightDisp = totalProjectValue > 0 ? (itemTotalValue / totalProjectValue) * 100 : 0;
 
                     sumUnitPrice += displayUnitPrice;
                     sumWeightDisp += itemWeightDisp;
@@ -336,20 +333,13 @@
                     const itemThisWeekQty = item.progressByWeek?.[activeWeekId] || 0;
                     const totalCompleted = itemPrevQty + itemThisWeekQty;
 
-                    let prevWeightDisp = parseFloat((item.totalQty > 0 ? (itemPrevQty / item.totalQty) * itemWeightDisp : 0).toFixed(2));
-                    let thisWeekWeightDisp = parseFloat((item.totalQty > 0 ? (itemThisWeekQty / item.totalQty) * itemWeightDisp : 0).toFixed(2));
-                    let totalWeightDisp = parseFloat((prevWeightDisp + thisWeekWeightDisp).toFixed(2));
-
-                    if (totalCompleted >= item.totalQty && item.totalQty > 0) {
-                        totalWeightDisp = itemWeightDisp;
-                    }
-
-                    displayCumulativeProgress += totalWeightDisp;
-
-                    const prevVal = item.totalQty > 0 ? (itemPrevQty / item.totalQty) * itemTotalValue : 0;
-                    const totalVal = item.totalQty > 0 ? (totalCompleted / item.totalQty) * itemTotalValue : 0;
+                    const safePrevQty = item.totalQty > 0 ? Math.min(Math.max(itemPrevQty, 0), item.totalQty) : 0;
+                    const safeTotalQty = item.totalQty > 0 ? Math.min(Math.max(totalCompleted, 0), item.totalQty) : 0;
+                    const prevVal = item.totalQty > 0 ? (safePrevQty / item.totalQty) * itemTotalValue : 0;
+                    const totalVal = item.totalQty > 0 ? (safeTotalQty / item.totalQty) * itemTotalValue : 0;
                     const thisWkVal = totalVal - prevVal;
 
+                    previousCompletedValue += prevVal;
                     totalCompletedValue += totalVal;
                     thisWeekValue += thisWkVal;
 
@@ -358,15 +348,18 @@
                     }
                 });
 
-                if (displayCumulativeProgress > 99.9 && completedTasksCount === items.length && items.length > 0) {
-                    displayCumulativeProgress = 100.00;
-                }
+                const previousProgress = totalProjectValue > 0 ? (previousCompletedValue / totalProjectValue) * 100 : 0;
+                const thisWeekProgress = totalProjectValue > 0 ? (thisWeekValue / totalProjectValue) * 100 : 0;
+                const cumulativeProgress = totalProjectValue > 0 ? (totalCompletedValue / totalProjectValue) * 100 : 0;
 
                 return {
                     totalProjectValue,
+                    previousCompletedValue,
                     totalCompletedValue,
                     thisWeekValue,
-                    displayCumulativeProgress: displayCumulativeProgress.toFixed(2),
+                    displayPreviousProgress: previousProgress.toFixed(2),
+                    displayThisWeekProgress: thisWeekProgress.toFixed(2),
+                    displayCumulativeProgress: cumulativeProgress.toFixed(2),
                     completedTasksCount,
                     totalTasks: items.length,
                     sumUnitPrice,
@@ -380,7 +373,8 @@
                 const totalWeeksToDisplay = Math.max(projectWeeks.length, planWeeks);
 
                 if (items.length === 0) return []; 
-                let runningTotal = 0;
+                let cumulativeValue = 0;
+                const cumulativeQtyByItem = new Map();
                 const data = [];
                 data.push({ name: 'เริ่มโครงการ', "ผลงานสัปดาห์นี้ (%)": null, "สะสมจริง (Actual)": 0, "แผนงาน (Plan)": 0 });
 
@@ -397,12 +391,16 @@
                         items.forEach(item => {
                             const itemTotalValue = item.totalAmount || 0;
                             const thisWeekQty = item.progressByWeek?.[weekData.id] || 0;
-                            const thisWeekRatio = item.totalQty > 0 ? (thisWeekQty / item.totalQty) : 0;
-                            weekValue += (itemTotalValue * thisWeekRatio);
+                            const previousQty = cumulativeQtyByItem.get(item.id) || 0;
+                            const nextQty = item.totalQty > 0 ? Math.min(Math.max(previousQty + thisWeekQty, 0), item.totalQty) : 0;
+                            const acceptedQty = Math.max(0, nextQty - previousQty);
+                            cumulativeQtyByItem.set(item.id, nextQty);
+                            const thisWeekRatio = item.totalQty > 0 ? (acceptedQty / item.totalQty) : 0;
+                            weekValue += itemTotalValue * thisWeekRatio;
                         });
                         weekPctThisWeek = summary.totalProjectValue > 0 ? (weekValue / summary.totalProjectValue) * 100 : 0;
-                        runningTotal += weekPctThisWeek;
-                        actualPct = parseFloat(runningTotal.toFixed(2));
+                        cumulativeValue += weekValue;
+                        actualPct = summary.totalProjectValue > 0 ? (cumulativeValue / summary.totalProjectValue) * 100 : 0;
                     }
 
                     data.push({
@@ -528,8 +526,16 @@
                 reader.onload = (event) => {
                     try {
                         const arrayBuffer = event.target.result;
-                        let text = new TextDecoder('utf-8').decode(arrayBuffer);
-                        if (text.includes('')) text = new TextDecoder('windows-874').decode(arrayBuffer);
+                        // ไฟล์จาก Excel อาจเป็น UTF-8 หรือ Windows-874/TIS-620
+                        // ใช้โหมด fatal เพื่อให้ fallback ทำงานเฉพาะเมื่อข้อมูลไม่ใช่ UTF-8 จริง ๆ
+                        let text;
+                        try {
+                            text = new TextDecoder('utf-8', { fatal: true }).decode(arrayBuffer);
+                        } catch (decodeError) {
+                            text = new TextDecoder('windows-874').decode(arrayBuffer);
+                        }
+                        // ตัด UTF-8 BOM ที่ Excel มักใส่มาหน้าไฟล์
+                        text = text.replace(/^\uFEFF/, '');
                         
                         const lines = text.split(/\r?\n|\r/).filter(line => line.trim() !== '');
                         if (lines.length <= 1) { showAlert('แจ้งเตือน', 'ไม่พบข้อมูลในไฟล์ หรือมีแค่หัวตาราง'); return; }
@@ -812,7 +818,7 @@
                                         <tr className="bg-gray-100 font-bold text-xs">
                                             <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมทั้งสิ้น:</td>
                                             <td className="border border-gray-800 p-2 text-right">฿ {formatNumber(summary.totalProjectValue)}</td>
-                                            <td colSpan={projectWeeks.length} className="border border-gray-800 p-2 text-center text-gray-600 print:text-black">ความก้าวหน้ารวมสะสม: {summary.displayCumulativeProgress}%</td>
+                                            <td colSpan={projectWeeks.length} className="border border-gray-800 p-2 text-center text-gray-600 print:text-black">สัปดาห์นี้: {summary.displayThisWeekProgress}% | รวมสะสม: {summary.displayCumulativeProgress}%</td>
                                             <td colSpan="2" className="border border-gray-800 p-2 text-right text-blue-800 print:text-black">฿ {formatNumber(summary.totalCompletedValue)}</td>
                                         </tr>
                                     </tfoot>
@@ -824,7 +830,6 @@
                 );
             }
 
-            // ==========================================
             // โหมดตัวอย่างก่อนพิมพ์ (Print Preview - Weekly)
             // ==========================================
             if (printMode === 'weekly') {
@@ -855,10 +860,14 @@
                                     <p className="text-gray-600 mt-1">ประจำ: {currentWeekName}</p>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                                     <div className="border-2 border-blue-200 bg-blue-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
                                         <p className="text-xs text-blue-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานสัปดาห์นี้</p>
                                         <p className="font-bold text-lg text-blue-800 print:text-black">฿ {formatNumber(summary.thisWeekValue)}</p>
+                                    </div>
+                                    <div className="border-2 border-amber-200 bg-amber-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
+                                        <p className="text-xs text-amber-600 font-medium mb-1 print:text-gray-600">ความก้าวหน้าสัปดาห์นี้</p>
+                                        <p className="font-bold text-lg text-amber-700 print:text-black">{summary.displayThisWeekProgress}%</p>
                                     </div>
                                     <div className="border-2 border-emerald-200 bg-emerald-50 p-3 rounded-lg text-center print:border-gray-300 print:bg-white">
                                         <p className="text-xs text-emerald-600 font-medium mb-1 print:text-gray-600">มูลค่าผลงานรวมสะสม</p>
@@ -889,18 +898,20 @@
                                                 <th className="border border-gray-800 p-2 text-left">รายการงานที่ทำ</th>
                                                 <th className="border border-gray-800 p-2 text-center w-16">หน่วย</th>
                                                 <th className="border border-gray-800 p-2 text-right w-24">ปริมาณ (สัปดาห์นี้)</th>
+                                                <th className="border border-gray-800 p-2 text-right w-24">ความก้าวหน้า (%)</th>
                                                 <th className="border border-gray-800 p-2 text-right w-28">ราคา/หน่วย (฿)</th>
                                                 <th className="border border-gray-800 p-2 text-right w-28">รวมเป็นเงิน (฿)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {weeklyItems.length === 0 ? (
-                                                <tr><td colSpan="6" className="text-center p-6 text-gray-500 italic">ไม่มีผลการดำเนินงานในสัปดาห์นี้</td></tr>
+                                                <tr><td colSpan="7" className="text-center p-6 text-gray-500 italic">ไม่มีผลการดำเนินงานในสัปดาห์นี้</td></tr>
                                             ) : (
                                                 weeklyItems.map((item, idx) => {
                                                     const qty = item.progressByWeek[activeWeekId];
                                                     const uprice = item.totalQty > 0 ? (item.totalAmount / item.totalQty) : 0;
                                                     const amt = qty * uprice;
+                                                    const weekProgress = summary.totalProjectValue > 0 ? (amt / summary.totalProjectValue) * 100 : 0;
                                                     totalWeeklyAmount += amt;
                                                     return (
                                                         <tr key={item.id}>
@@ -908,6 +919,7 @@
                                                             <td className="border border-gray-800 p-1.5">{item.name}</td>
                                                             <td className="border border-gray-800 p-1.5 text-center">{item.unit}</td>
                                                             <td className="border border-gray-800 p-1.5 text-right font-bold text-blue-700 print:text-black">{formatNumber(qty)}</td>
+                                                            <td className="border border-gray-800 p-1.5 text-right font-bold text-amber-700 print:text-black">{weekProgress.toFixed(4)}%</td>
                                                             <td className="border border-gray-800 p-1.5 text-right text-gray-600 print:text-black">{formatNumber(uprice)}</td>
                                                             <td className="border border-gray-800 p-1.5 text-right font-bold">{formatNumber(amt)}</td>
                                                         </tr>
@@ -918,7 +930,9 @@
                                         {weeklyItems.length > 0 && (
                                             <tfoot className="bg-gray-100 font-bold text-sm">
                                                 <tr>
-                                                    <td colSpan="5" className="border border-gray-800 p-2 text-right">รวมมูลค่างานสัปดาห์นี้:</td>
+                                                    <td colSpan="4" className="border border-gray-800 p-2 text-right">รวมผลงานสัปดาห์นี้:</td>
+                                                    <td className="border border-gray-800 p-2 text-right text-amber-700 font-black print:text-black">{summary.displayThisWeekProgress}%</td>
+                                                    <td className="border border-gray-800 p-2 text-right">รวมมูลค่า:</td>
                                                     <td className="border border-gray-800 p-2 text-right text-blue-800 font-black print:text-black">฿ {formatNumber(totalWeeklyAmount)}</td>
                                                 </tr>
                                             </tfoot>
@@ -971,7 +985,6 @@
                                 <button onClick={() => setPrintMode('weekly')} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg font-medium shadow-sm">
                                     <i className="fa-solid fa-file-invoice text-lg"></i> <span className="hidden sm:inline">พิมพ์รายสัปดาห์</span>
                                 </button>
-                                
                                 <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
                                 <button onClick={() => fileInputRef.current?.click()} className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg font-medium shadow-sm">
                                     <i className="fa-solid fa-file-import text-lg"></i> <span className="hidden sm:inline">อัปโหลด CSV</span>
@@ -1004,7 +1017,15 @@
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-100 flex flex-col justify-center">
+                                <div className="flex items-center gap-3 text-gray-500 mb-2">
+                                    <i className="fa-solid fa-calendar-check text-amber-500 text-2xl"></i>
+                                    <span className="font-medium">ความก้าวหน้าสัปดาห์นี้</span>
+                                </div>
+                                <div className="text-3xl font-bold text-amber-600">{summary.displayThisWeekProgress}%</div>
+                                <div className="text-sm text-gray-400 mt-1">ยอดยกมา {summary.displayPreviousProgress}%</div>
+                            </div>
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
                                 <div className="flex items-center gap-3 text-gray-500 mb-2">
                                     <i className="fa-solid fa-arrow-trend-up text-green-500 text-2xl"></i>
@@ -1100,20 +1121,10 @@
                                             </tr>
                                         ) : (
                                             (() => {
-                                                let runningWeight = 0;
-                                                return items.map((item, index) => {
+                                                return items.map((item) => {
                                                     const itemTotalValue = item.totalAmount || 0;
-                                                    
-                                                    let itemWeightDisp = 0;
-                                                    if (summary.totalProjectValue > 0) {
-                                                        if (index === items.length - 1) {
-                                                            itemWeightDisp = parseFloat((100 - runningWeight).toFixed(2));
-                                                            if(itemWeightDisp < 0) itemWeightDisp = 0;
-                                                        } else {
-                                                            itemWeightDisp = parseFloat(((itemTotalValue / summary.totalProjectValue) * 100).toFixed(2));
-                                                        }
-                                                        runningWeight += itemWeightDisp;
-                                                    }
+
+                                                    const itemWeightDisp = summary.totalProjectValue > 0 ? (itemTotalValue / summary.totalProjectValue) * 100 : 0;
 
                                                     const displayUnitPrice = item.unitPrice !== undefined ? item.unitPrice : (item.totalQty > 0 ? itemTotalValue / item.totalQty : 0);
 
@@ -1121,16 +1132,13 @@
                                                     relevantWeeks.slice(0, relevantWeeks.length - 1).forEach(w => { itemPrevQty += (item.progressByWeek?.[w.id] || 0); });
                                                     const itemThisWeekQty = item.progressByWeek?.[activeWeekId] || 0;
                                                     const totalCompleted = itemPrevQty + itemThisWeekQty;
-                                                    const remaining = item.totalQty - totalCompleted;
+                                                    const remaining = Math.max(0, item.totalQty - totalCompleted);
 
-                                                    let prevWeightDisp = parseFloat((item.totalQty > 0 ? (itemPrevQty / item.totalQty) * itemWeightDisp : 0).toFixed(2));
-                                                    let thisWeekWeightDisp = parseFloat((item.totalQty > 0 ? (itemThisWeekQty / item.totalQty) * itemWeightDisp : 0).toFixed(2));
-                                                    let totalWeightDisp = parseFloat((prevWeightDisp + thisWeekWeightDisp).toFixed(2));
-
-                                                    if (totalCompleted >= item.totalQty && item.totalQty > 0) {
-                                                        totalWeightDisp = itemWeightDisp;
-                                                        thisWeekWeightDisp = parseFloat((totalWeightDisp - prevWeightDisp).toFixed(2));
-                                                    }
+                                                    const safePrevQty = item.totalQty > 0 ? Math.min(Math.max(itemPrevQty, 0), item.totalQty) : 0;
+                                                    const safeTotalQty = item.totalQty > 0 ? Math.min(Math.max(totalCompleted, 0), item.totalQty) : 0;
+                                                    const prevWeightDisp = item.totalQty > 0 ? (safePrevQty / item.totalQty) * itemWeightDisp : 0;
+                                                    const totalWeightDisp = item.totalQty > 0 ? (safeTotalQty / item.totalQty) * itemWeightDisp : 0;
+                                                    const thisWeekWeightDisp = Math.max(0, totalWeightDisp - prevWeightDisp);
 
                                                     const isCompletedBeforeThisWeek = itemPrevQty >= item.totalQty;
 
@@ -1144,22 +1152,22 @@
                                                             <td className="p-3 text-right text-gray-600">{formatNumber(displayUnitPrice)}</td>
                                                             <td className="p-3 text-right font-medium text-gray-800">{formatNumber(itemTotalValue)}</td>
                                                             <td className="p-3 text-center font-bold text-purple-600 bg-purple-50/20 border-r border-gray-100">
-                                                                {itemWeightDisp.toFixed(2)}%
+                                                                {itemWeightDisp.toFixed(4)}%
                                                             </td>
                                                             
                                                             <td className="p-3 text-right text-gray-500">
                                                                 <div className="font-semibold">{formatNumber(itemPrevQty)}</div>
-                                                                <div className="text-[11px] mt-0.5">{prevWeightDisp.toFixed(2)}%</div>
+                                                                <div className="text-[11px] mt-0.5">{prevWeightDisp.toFixed(4)}%</div>
                                                             </td>
                                                             
                                                             <td className="p-3 text-right font-bold text-amber-600 bg-amber-50/30">
                                                                 <div>{itemThisWeekQty > 0 ? `+${formatNumber(itemThisWeekQty)}` : '-'}</div>
-                                                                {itemThisWeekQty > 0 && <div className="text-[11px] font-normal mt-0.5">+{thisWeekWeightDisp.toFixed(2)}%</div>}
+                                                                {itemThisWeekQty > 0 && <div className="text-[11px] font-normal mt-0.5">+{thisWeekWeightDisp.toFixed(4)}%</div>}
                                                             </td>
                                                             
                                                             <td className="p-3 text-right font-bold text-blue-600 bg-blue-50/20 border-r border-gray-100">
                                                                 <div>{formatNumber(totalCompleted)}</div>
-                                                                <div className="text-[11px] font-normal text-blue-500 mt-0.5">{totalWeightDisp.toFixed(2)}%</div>
+                                                                <div className="text-[11px] font-normal text-blue-500 mt-0.5">{totalWeightDisp.toFixed(4)}%</div>
                                                             </td>
                                                             
                                                             <td className="p-3 text-right font-bold text-red-500">
@@ -1203,9 +1211,19 @@
                                                 <td colSpan="3" className="p-3 text-right text-gray-600">รวมทั้งหมด:</td>
                                                 <td className="p-3 text-right text-gray-900">{formatNumber(summary.sumUnitPrice)}</td>
                                                 <td className="p-3 text-right text-gray-900">฿ {formatNumber(summary.totalProjectValue)}</td>
-                                                <td className="p-3 text-center text-purple-700 text-lg">{summary.sumWeightDisp.toFixed(2)}%</td>
-                                                <td colSpan="2" className="p-3 text-right text-gray-600">ความก้าวหน้ารวมสะสม:</td>
-                                                <td className="p-3 text-right text-blue-700 text-lg">{summary.displayCumulativeProgress}%</td>
+                                                <td className="p-3 text-center text-purple-700 text-lg">{summary.sumWeightDisp.toFixed(4)}%</td>
+                                                <td className="p-3 text-right text-gray-600">
+                                                    <div className="text-xs">ยอดยกมา</div>
+                                                    <div>{summary.displayPreviousProgress}%</div>
+                                                </td>
+                                                <td className="p-3 text-right text-amber-600">
+                                                    <div className="text-xs">สัปดาห์นี้</div>
+                                                    <div className="text-lg">{summary.displayThisWeekProgress}%</div>
+                                                </td>
+                                                <td className="p-3 text-right text-blue-700">
+                                                    <div className="text-xs">รวมสะสม</div>
+                                                    <div className="text-lg">{summary.displayCumulativeProgress}%</div>
+                                                </td>
                                                 <td colSpan="2" className="print:hidden"></td>
                                             </tr>
                                         </tfoot>
