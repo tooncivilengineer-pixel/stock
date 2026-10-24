@@ -87,6 +87,11 @@
             const [db, setDb] = useState(null);
             const [auth, setAuth] = useState(null);
             const appId = "construction-ppao-tracker";
+            // ใช้ฐานข้อมูลส่วนกลาง เพื่อให้ทุกเบราว์เซอร์และทุกเครื่องเห็นโครงการชุดเดียวกัน
+            const getProjectsCollection = () => db
+                .collection('artifacts').doc(appId)
+                .collection('public').doc('data')
+                .collection('projects');
 
             useEffect(() => {
                 const initFirebase = () => {
@@ -126,7 +131,7 @@
 
             useEffect(() => {
                 if (!user || !db) return;
-                const colRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects');
+                const colRef = getProjectsCollection();
                 const unsubscribe = colRef.onSnapshot((snapshot) => {
                     const projData = [];
                     snapshot.forEach(docSnap => {
@@ -144,7 +149,7 @@
                 if (!user || !db || !activeProjectId || !isDataLoaded) return;
                 const saveData = async () => {
                     try {
-                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(activeProjectId);
+                        const docRef = getProjectsCollection().doc(activeProjectId);
                         await docRef.set({ items, weeks: projectWeeks, updatedAt: Date.now() }, { merge: true });
                     } catch (error) { console.error("Save Data Error:", error); }
                 };
@@ -168,7 +173,7 @@
                 };
 
                 if (user && db) {
-                    const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(projectId);
+                    const docRef = getProjectsCollection().doc(projectId);
                     await docRef.set(newProject);
                 } else {
                     setProjects(prev => [{ id: projectId, ...newProject }, ...prev]);
@@ -206,7 +211,7 @@
                                 let hasError = false;
                                 for (const proj of cleanImportedData) {
                                     try {
-                                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(proj.id);
+                                        const docRef = getProjectsCollection().doc(proj.id);
                                         await docRef.set(proj);
                                     } catch (err) {
                                         hasError = true;
@@ -238,7 +243,7 @@
                 if (wks > 0 && activeProjectId) {
                     setProjects(prev => prev.map(p => p.id === activeProjectId ? {...p, plannedWeeks: wks} : p));
                     if (user && db) {
-                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(activeProjectId);
+                        const docRef = getProjectsCollection().doc(activeProjectId);
                         await docRef.set({ plannedWeeks: wks }, { merge: true });
                     }
                 }
@@ -271,7 +276,7 @@
                 e.stopPropagation(); 
                 showConfirm('ยืนยันการลบ', 'คำเตือน: คุณต้องการลบโครงการนี้ใช่หรือไม่?', async () => {
                     if (user && db) {
-                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('projects').doc(projectId);
+                        const docRef = getProjectsCollection().doc(projectId);
                         await docRef.delete();
                     } else {
                         setProjects(prev => prev.filter(p => p.id !== projectId));
